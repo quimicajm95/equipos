@@ -2,49 +2,124 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Registro de Equipos - Química</title>
+  <title>Registro de Equipos - FarmaciaQuímica</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: Arial, sans-serif; padding: 30px; }
-    label, select, input { display: block; margin: 10px 0; }
-    button { padding: 10px 20px; margin-right: 10px; }
-    #btnResultados:disabled { background: #ccc; cursor: not-allowed; }
-    #msg { margin-top: 10px; font-weight: bold; }
+    :root {
+      --primary: #2c3e50;
+      --secondary: #3498db;
+      --success: #27ae60;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+      --dark-bg: #1a1a2e;
+      --card-bg: #16213e;
+      --text-light: #ecf0f1;
+    }
+    body {
+      background: linear-gradient(135deg, var(--dark-bg) 0%, #0f3460 100%);
+      color: var(--text-light);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .card-box {
+      max-width: 600px;
+      margin: auto;
+      background: var(--card-bg);
+      border-radius: 15px;
+      padding: 40px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+    .form-control, .form-select {
+      background-color: #2c3e50;
+      border: 1px solid #34495e;
+      color: var(--text-light);
+      font-size: 1.1rem;
+    }
+    .form-control:focus, .form-select:focus {
+      background-color: #34495e;
+      color: var(--text-light);
+      border-color: var(--warning);
+      box-shadow: 0 0 0 .2rem rgba(243, 156, 18,.25);
+    }
+    .btn-register {
+      background: linear-gradient(135deg, var(--secondary), var(--warning));
+      border: none;
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      border-radius: 50px;
+      transition: .3s;
+    }
+    .btn-register:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(52, 152, 219,.4);
+    }
+    .btn-result {
+      background: linear-gradient(135deg, var(--success), #229954);
+      border: none;
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      border-radius: 50px;
+      transition: .3s;
+    }
+    .btn-result:disabled {
+      background: #7f8c8d;
+      cursor: not-allowed;
+    }
+    .icon-pills {
+      font-size: 3rem;
+      color: var(--warning);
+      margin-bottom: 15px;
+    }
   </style>
 </head>
 <body>
-  <h1>Registro de Estudiantes - Laboratorio de Química</h1>
+  <div class="card-box text-center">
+    <i class="fas fa-pills icon-pills"></i>
+    <h2 class="mb-4">Registro de Equipos - Laboratorio</h2>
 
-  <form id="formulario">
-    <label>Nombre completo:
-      <input type="text" name="nombre" required>
-    </label>
-    <label>Equipo:
-      <select name="equipo" id="equipo" required></select>
-    </label>
-    <button type="submit">Registrar</button>
-  </form>
+    <form id="formulario">
+      <div class="mb-3">
+        <label for="nombre" class="form-label">Nombre completo (con apellidos)</label>
+        <textarea class="form-control" id="nombre" name="nombre" rows="2" required placeholder="Ej. Ana García López"></textarea>
+      </div>
 
-  <button id="btnResultados" disabled onclick="location.href='resultados.html'">
-    Resultados
-  </button>
-  <div id="msg"></div>
+      <div class="mb-4">
+        <label for="equipo" class="form-label">Equipo</label>
+        <select class="form-select" id="equipo" name="equipo" required>
+          <!-- se llena dinámicamente -->
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-register">
+        <i class="fas fa-save me-2"></i>Registrar
+      </button>
+    </form>
+
+    <button id="btnResultados" class="btn btn-success btn-result mt-4" disabled onclick="location.href='resultados.html'">
+      <i class="fas fa-chart-bar me-2"></i>Ver Resultados
+    </button>
+
+    <div id="msg" class="mt-3"></div>
+  </div>
 
   <script>
     /* ---------- CONFIG ---------- */
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXMFxSScjXfXNU7MnSuy3psCOKWyRh9UEZ2P7WmMDRabYA-jkqz665CGKDe'; // <-- cambia
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXMFxSScjXfXNU7MnSuy3psCOKWyRh9UEZ2P7WmMDRabYA-jkqz665CGKDe'; // <--- cambia
     const MAX_POR_EQUIPO = 5;
     const EQUIPOS = 12;
 
-    /* ---------- UTILS ---------- */
+    /* ---------- ELEMENTOS ---------- */
     const form = document.getElementById('formulario');
     const select = document.getElementById('equipo');
     const btn = document.getElementById('btnResultados');
     const msg = document.getElementById('msg');
 
+    /* ---------- CARGAR EQUIPOS DISPONIBLES ---------- */
     async function cargarEquipos() {
-      const sp = await fetch(SCRIPT_URL + '?action=listar'); // leeremos la hoja
-      const txt = await sp.text();
-      const rows = txt.trim().split('\n').slice(1); // quitamos cabecera
+      const raw = await fetch(SCRIPT_URL + '?action=listar');
+      const txt = await raw.text();
+      const rows = txt.trim().split('\n').slice(1); // sin cabecera
       const cuenta = {};
       for (let i = 1; i <= EQUIPOS; i++) cuenta[i] = 0;
       rows.forEach(r => {
@@ -68,6 +143,7 @@
       }
     }
 
+    /* ---------- ENVIAR DATOS ---------- */
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const nombre = form.nombre.value.trim();
@@ -81,15 +157,15 @@
       });
       const txt = await res.text();
       if (txt === 'ok') {
-        msg.textContent = '¡Registrado!';
+        msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> ¡Registrado!</span>';
         form.reset();
         cargarEquipos();
       } else {
-        msg.textContent = 'Error al registrar.';
+        msg.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle"></i> Error al registrar.</span>';
       }
     });
 
-    /* primera carga y polling */
+    /* ---------- POLLING ---------- */
     cargarEquipos();
     setInterval(cargarEquipos, 3000);
   </script>
