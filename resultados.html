@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Resultados - FarmaciaQuímica</title>
+  <title>Resultados - Asignación de Experimentos</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -11,45 +11,537 @@
       --secondary: #3498db;
       --success: #27ae60;
       --warning: #f39c12;
+      --danger: #e74c3c;
       --dark-bg: #1a1a2e;
       --card-bg: #16213e;
-      --text-light: #ecf0f1;
+      --text-light: #ffffff;
     }
     body {
       background: linear-gradient(135deg, var(--dark-bg) 0%, #0f3460 100%);
       color: var(--text-light);
       min-height: 100vh;
-      padding: 40px 20px;
+      padding: 20px;
     }
     .card-box {
-      max-width: 900px;
+      max-width: 1200px;
       margin: auto;
       background: var(--card-bg);
       border-radius: 15px;
-      padding: 40px;
+      padding: 30px;
       box-shadow: 0 10px 30px rgba(0,0,0,.4);
     }
-    .icon-pills {
+    .icon-trophy {
       font-size: 3rem;
       color: var(--warning);
-      margin-bottom: 15px;
     }
-    h2 {
+    .btn-back {
+      background: linear-gradient(135deg, var(--secondary), var(--warning));
+      border: none;
+      padding: 12px 30px;
+      border-radius: 50px;
+      color: white;
+      font-weight: 600;
+      margin-top: 20px;
+    }
+    .btn-export {
+      background: linear-gradient(135deg, var(--success), #229954);
+      border: none;
+      padding: 8px 20px;
+      border-radius: 30px;
+      color: white;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      color: white;
+    }
+    .table-dark-custom {
+      background-color: #1c2836;
+      color: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-dark-custom th {
+      background-color: #2c3e50;
+      border-color: #34495e;
+      color: white;
+      font-weight: 600;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .table-dark-custom td {
+      border-color: #34495e;
+      vertical-align: middle;
+    }
+    .table-title {
+      border-bottom: 3px solid var(--warning);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .experiment-badge {
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
+      color: white;
+      font-weight: 500;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+    .team-badge {
+      background: linear-gradient(135deg, var(--secondary), #2980b9);
+      color: white;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 1rem;
+    }
+    .password-modal .modal-content {
+      background: var(--card-bg);
+      color: white;
+      border-radius: 15px;
+    }
+    .password-modal .form-control {
+      background-color: #2c3e50;
+      border: 1px solid #34495e;
+      color: white;
+    }
+    .password-modal .form-control:focus {
+      background-color: #34495e;
+      border-color: var(--warning);
+      box-shadow: 0 0 0 .2rem rgba(243, 156, 18,.25);
+      color: white;
+    }
+    .modal-header {
+      border-bottom: 1px solid #34495e;
+    }
+    .modal-footer {
+      border-top: 1px solid #34495e;
+    }
+    .readonly-table {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    .readonly-table td {
+      color: #ecf0f1;
+    }
+    .section-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
       border-left: 5px solid var(--warning);
-      padding-left: 15px;
-      margin-top: 40px;
     }
   </style>
 </head>
 <body>
   <div class="card-box">
-    <div class="text-center">
-      <i class="fas fa-pills icon-pills"></i>
-      <h1 class="mb-4">Asignación Final de Equipos y Experimentos</h1>
+    <!-- ENCABEZADO -->
+    <div class="text-center mb-5">
+      <i class="fas fa-trophy icon-trophy mb-3"></i>
+      <h1 class="mb-3">Asignación Final de Experimentos</h1>
+      <p class="text-muted">Laboratorio 3 - Farmacia Química</p>
+      <div class="alert alert-info d-inline-block">
+        <i class="fas fa-lock me-2"></i>
+        Los datos son de solo lectura y no se pueden modificar
+      </div>
     </div>
-    <div id="resultados"></div>
+
+    <!-- TABLA 1: ASIGNACIÓN DE EXPERIMENTOS A EQUIPOS -->
+    <div class="section-card">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="table-title mb-0">
+          <i class="fas fa-flask me-2"></i>Asignación de Experimentos por Equipo
+        </h3>
+        <button class="btn btn-export" onclick="solicitarPassword('experimentos')">
+          <i class="fas fa-download me-2"></i>Exportar CSV
+        </button>
+      </div>
+      
+      <div class="table-responsive">
+        <table class="table table-dark-custom readonly-table">
+          <thead>
+            <tr>
+              <th width="20%">Equipo</th>
+              <th width="40%">Experimento Asignado</th>
+              <th width="20%">Código</th>
+              <th width="20%">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-experimentos">
+            <!-- Datos se cargan dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TABLA 2: REGISTROS COMPLETOS DE PERSONAS -->
+    <div class="section-card">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="table-title mb-0">
+          <i class="fas fa-users me-2"></i>Registro Completo de Participantes
+        </h3>
+        <button class="btn btn-export" onclick="solicitarPassword('registros')">
+          <i class="fas fa-download me-2"></i>Exportar CSV
+        </button>
+      </div>
+      
+      <div class="table-responsive">
+        <table class="table table-dark-custom readonly-table">
+          <thead>
+            <tr>
+              <th width="10%">#</th>
+              <th width="30%">Nombre Completo</th>
+              <th width="20%">Equipo</th>
+              <th width="20%">Experimento</th>
+              <th width="20%">Fecha de Registro</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-registros-completos">
+            <!-- Datos se cargan dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BOTÓN PARA VOLVER -->
+    <div class="text-center mt-5">
+      <button class="btn btn-back" onclick="window.location.href='index.html'">
+        <i class="fas fa-arrow-left me-2"></i>Volver al Registro
+      </button>
+    </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- MODAL PARA CONTRASEÑA -->
+  <div class="modal fade password-modal" id="passwordModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-lock me-2"></i>Autenticación Requerida
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Ingresa la contraseña para exportar los datos:</p>
+          <div class="mb-3">
+            <input type="password" class="form-control" id="passwordInput" placeholder="Contraseña">
+          </div>
+          <div id="passwordError" class="alert alert-danger d-none">
+            <i class="fas fa-times-circle me-2"></i>Contraseña incorrecta
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-success" onclick="verificarPassword()">Exportar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // CONFIGURACIÓN
+    const EXPERIMENTOS = [
+      "Humo de brujas",
+      "Identificación de iones hierro con tiosianato",
+      "Amoníaco con sulfato de cobre",
+      "Amoníaco con cloruro de cobalto",
+      "Camaleón químico",
+      "Botella azul",
+      "Volcán de dicromato",
+      "Cinta de magnesio",
+      "Permanganato con etanol con y sin catalizador",
+      "Serpiente del faraón",
+      "Galvanoplastia",
+      "Electrolisis y pH"
+    ];
+    
+    const PASSWORD = "Lab3Farmacia2024"; // Contraseña para exportar
+    const CORREO_DESTINO = "quimicajm95@gmail.com";
+    const ASUNTO_CORREO = "Equipos Lab 3-Farmacia";
+    
+    // Variables globales
+    let tipoExportacion = ''; // 'experimentos' o 'registros'
+    let modal = null;
+
+    // Obtener registros del LocalStorage
+    function obtenerRegistros() {
+      const datos = localStorage.getItem('registros_equipos');
+      return datos ? JSON.parse(datos) : [];
+    }
+    
+    // Asignar experimentos aleatoriamente a equipos (1-12)
+    function asignarExperimentosAleatorios() {
+      const experimentosAsignados = {};
+      const experimentosDisponibles = [...EXPERIMENTOS];
+      
+      // Mezclar array de experimentos
+      for (let i = experimentosDisponibles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [experimentosDisponibles[i], experimentosDisponibles[j]] = [experimentosDisponibles[j], experimentosDisponibles[i]];
+      }
+      
+      // Asignar a equipos 1-12
+      for (let equipo = 1; equipo <= 12; equipo++) {
+        experimentosAsignados[equipo] = {
+          nombre: experimentosDisponibles[equipo - 1],
+          codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
+          completado: false
+        };
+      }
+      
+      return experimentosAsignados;
+    }
+    
+    // Verificar qué equipos están completos (5 personas)
+    function verificarEquiposCompletos() {
+      const registros = obtenerRegistros();
+      const cuenta = {};
+      
+      // Inicializar contadores
+      for (let i = 1; i <= 12; i++) {
+        cuenta[i] = 0;
+      }
+      
+      // Contar personas por equipo
+      registros.forEach(reg => {
+        if (reg.equipo >= 1 && reg.equipo <= 12) {
+          cuenta[reg.equipo]++;
+        }
+      });
+      
+      // Marcar equipos completos (5 personas)
+      const equiposCompletos = {};
+      for (let i = 1; i <= 12; i++) {
+        equiposCompletos[i] = cuenta[i] === 5;
+      }
+      
+      return equiposCompletos;
+    }
+    
+    // Cargar tabla de experimentos
+    function cargarTablaExperimentos() {
+      const tabla = document.getElementById('tabla-experimentos');
+      const experimentosAsignados = asignarExperimentosAleatorios();
+      const equiposCompletos = verificarEquiposCompletos();
+      
+      tabla.innerHTML = '';
+      
+      for (let equipo = 1; equipo <= 12; equipo++) {
+        const experimento = experimentosAsignados[equipo];
+        const completado = equiposCompletos[equipo];
+        
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+          <td class="text-center">
+            <span class="team-badge">Equipo ${equipo}</span>
+          </td>
+          <td>
+            <span class="experiment-badge">${experimento.nombre}</span>
+          </td>
+          <td class="text-center">${experimento.codigo}</td>
+          <td class="text-center">
+            <span class="badge ${completado ? 'bg-success' : 'bg-warning'}">
+              <i class="fas ${completado ? 'fa-check-circle' : 'fa-clock'} me-1"></i>
+              ${completado ? 'COMPLETO' : 'PENDIENTE'}
+            </span>
+          </td>
+        `;
+        tabla.appendChild(fila);
+      }
+      
+      return experimentosAsignados;
+    }
+    
+    // Cargar tabla de registros completos
+    function cargarTablaRegistrosCompletos(experimentosAsignados) {
+      const tabla = document.getElementById('tabla-registros-completos');
+      const registros = obtenerRegistros();
+      
+      tabla.innerHTML = '';
+      
+      if (registros.length === 0) {
+        tabla.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center py-5">
+              <i class="fas fa-inbox fa-2x mb-3 d-block"></i>
+              No hay registros aún
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      registros.forEach((registro, index) => {
+        const experimento = experimentosAsignados[registro.equipo] || {nombre: 'No asignado', codigo: 'N/A'};
+        
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+          <td class="text-center">${index + 1}</td>
+          <td>${registro.nombre}</td>
+          <td class="text-center">
+            <span class="badge bg-primary">Equipo ${registro.equipo}</span>
+          </td>
+          <td>${experimento.nombre}</td>
+          <td>${registro.fecha}</td>
+        `;
+        tabla.appendChild(fila);
+      });
+    }
+    
+    // Función para solicitar contraseña
+    function solicitarPassword(tipo) {
+      tipoExportacion = tipo;
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').classList.add('d-none');
+      
+      if (!modal) {
+        modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+      }
+      
+      modal.show();
+    }
+    
+    // Verificar contraseña y exportar
+    function verificarPassword() {
+      const passwordIngresada = document.getElementById('passwordInput').value;
+      const errorDiv = document.getElementById('passwordError');
+      
+      if (passwordIngresada === PASSWORD) {
+        errorDiv.classList.add('d-none');
+        modal.hide();
+        
+        // Exportar según el tipo
+        if (tipoExportacion === 'experimentos') {
+          exportarExperimentosCSV();
+        } else if (tipoExportacion === 'registros') {
+          exportarRegistrosCSV();
+        }
+        
+        // Mostrar mensaje de éxito
+        mostrarMensajeExito();
+        
+      } else {
+        errorDiv.classList.remove('d-none');
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('passwordInput').focus();
+      }
+    }
+    
+    // Exportar tabla de experimentos como CSV y enviar por correo
+    function exportarExperimentosCSV() {
+      const registros = obtenerRegistros();
+      const experimentosAsignados = asignarExperimentosAleatorios();
+      const equiposCompletos = verificarEquiposCompletos();
+      
+      // Crear contenido CSV
+      let csvContent = "Equipo,Experimento Asignado,Código,Personas Registradas,Estado,Última Actualización\n";
+      
+      for (let equipo = 1; equipo <= 12; equipo++) {
+        const experimento = experimentosAsignados[equipo];
+        const personas = contarPersonasPorEquipo(equipo, registros);
+        const estado = equiposCompletos[equipo] ? "COMPLETO" : "INCOMPLETO";
+        const fecha = new Date().toLocaleString('es-ES');
+        
+        csvContent += `"Equipo ${equipo}","${experimento.nombre}","${experimento.codigo}",${personas},"${estado}","${fecha}"\n`;
+      }
+      
+      // Crear archivo CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      
+      // Crear enlace para descargar
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `asignacion_experimentos_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Simular envío por correo (en producción se usaría un backend)
+      console.log(`Simulando envío a: ${CORREO_DESTINO}`);
+      console.log(`Asunto: ${ASUNTO_CORREO}`);
+      console.log('Archivo CSV listo para enviar');
+      
+      // En un entorno real, aquí se haría una petición a un servidor para enviar el correo
+      alert('Archivo CSV generado. En un entorno real, se enviaría automáticamente a ' + CORREO_DESTINO);
+    }
+    
+    // Exportar tabla de registros como CSV y enviar por correo
+    function exportarRegistrosCSV() {
+      const registros = obtenerRegistros();
+      const experimentosAsignados = asignarExperimentosAleatorios();
+      
+      // Crear contenido CSV
+      let csvContent = "#,Nombre Completo,Equipo,Experimento Asignado,Fecha de Registro\n";
+      
+      registros.forEach((registro, index) => {
+        const experimento = experimentosAsignados[registro.equipo] || {nombre: 'No asignado'};
+        
+        csvContent += `${index + 1},"${registro.nombre}","Equipo ${registro.equipo}","${experimento.nombre}","${registro.fecha}"\n`;
+      });
+      
+      // Crear archivo CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      
+      // Crear enlace para descargar
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `registros_completos_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Simular envío por correo
+      console.log(`Simulando envío a: ${CORREO_DESTINO}`);
+      console.log(`Asunto: ${ASUNTO_CORREO}`);
+      console.log('Archivo CSV listo para enviar');
+      
+      alert('Archivo CSV generado. En un entorno real, se enviaría automáticamente a ' + CORREO_DESTINO);
+    }
+    
+    // Contar personas por equipo específico
+    function contarPersonasPorEquipo(equipo, registros) {
+      let count = 0;
+      registros.forEach(reg => {
+        if (reg.equipo === equipo) {
+          count++;
+        }
+      });
+      return count;
+    }
+    
+    // Mostrar mensaje de éxito
+    function mostrarMensajeExito() {
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+      alertDiv.style.zIndex = '9999';
+      alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>¡Éxito!</strong> Archivo CSV generado correctamente.
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+      `;
+      
+      document.body.appendChild(alertDiv);
+      
+      // Auto-eliminar después de 5 segundos
+      setTimeout(() => {
+        const bsAlert = new bootstrap.Alert(alertDiv);
+        bsAlert.close();
+      }, 5000);
+    }
+    
+    // Inicializar la página
+    document.addEventListener('DOMContentLoaded', function() {
+      const experimentosAsignados = cargarTablaExperimentos();
+      cargarTablaRegistrosCompletos(experimentosAsignados);
+      
+      // Inicializar modal
+      modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+    });
+  </script>
+  
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
