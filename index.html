@@ -89,7 +89,6 @@
       color: var(--warning);
     }
     
-    /* CAMBIO AQUÍ: Texto negro en la tabla para mejor contraste */
     .table-dark-custom {
       background-color: #1c2836;
     }
@@ -279,73 +278,78 @@
   </div>
 
   <script>
-    /* ========== SISTEMA DE ALMACENAMIENTO LOCAL ========== */
-    const STORAGE_KEY = 'registros_equipos';
+    /* ========== CONFIGURACIÓN GOOGLE SHEETS ========== */
+    // REEMPLAZA ESTA URL CON LA DE TU WEB APP
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec';
+    
     const MAX_POR_EQUIPO = 5;
     const TOTAL_EQUIPOS = 12;
 
-    // Obtener registros del LocalStorage
-    function obtenerRegistros() {
-      const datos = localStorage.getItem(STORAGE_KEY);
-      return datos ? JSON.parse(datos) : [];
-    }
-
-    // Guardar registros en LocalStorage
-    function guardarRegistros(registros) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
-    }
-
-    // Agregar nuevo registro
-    function agregarRegistro(nombre, equipo) {
-      const registros = obtenerRegistros();
-      const nuevoRegistro = {
-        id: Date.now(), // ID único basado en timestamp
-        fecha: new Date().toLocaleString('es-ES'),
-        nombre: nombre.trim(),
-        equipo: parseInt(equipo)
-      };
-      registros.unshift(nuevoRegistro); // Agregar al inicio
-      guardarRegistros(registros);
-      return nuevoRegistro;
-    }
-
-    // Contar personas por equipo
-    function contarPorEquipo() {
-      const registros = obtenerRegistros();
-      const cuenta = {};
-      
-      // Inicializar todos los equipos
-      for (let i = 1; i <= TOTAL_EQUIPOS; i++) {
-        cuenta[i] = 0;
-      }
-      
-      // Contar registros por equipo
-      registros.forEach(reg => {
-        if (reg.equipo >= 1 && reg.equipo <= TOTAL_EQUIPOS) {
-          cuenta[reg.equipo]++;
+    /* ========== FUNCIONES PARA GOOGLE SHEETS ========== */
+    
+    // Cargar registros desde Google Sheets
+    async function cargarRegistros() {
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=listar`);
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          return data.data;
+        } else {
+          console.error('Error al cargar:', data.message);
+          return [];
         }
-      });
-      
-      return cuenta;
+      } catch (error) {
+        console.error('Error de conexión:', error);
+        mostrarMensaje('Error al conectar con el servidor', 'error');
+        return [];
+      }
     }
 
-    // Verificar si todos los equipos están completos
-    function verificarEquiposCompletos() {
-      const cuenta = contarPorEquipo();
-      const btnResultados = document.getElementById('btnResultados');
-      
-      let todosCompletos = true;
-      for (let i = 1; i <= TOTAL_EQUIPOS; i++) {
-        if (cuenta[i] < MAX_POR_EQUIPO) {
-          todosCompletos = false;
-          break;
+    // Cargar conteo de equipos
+    async function cargarConteoEquipos() {
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=contar`);
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          return data.conteo;
+        } else {
+          console.error('Error al contar:', data.message);
+          // Retornar objeto vacío si hay error
+          const conteo = {};
+          for (let i = 1; i <= TOTAL_EQUIPOS; i++) conteo[i] = 0;
+          return conteo;
         }
+      } catch (error) {
+        console.error('Error de conexión:', error);
+        const conteo = {};
+        for (let i = 1; i <= TOTAL_EQUIPOS; i++) conteo[i] = 0;
+        return conteo;
       }
-      
-      // Habilitar/deshabilitar botón según estado
-      btnResultados.disabled = !todosCompletos;
-      
-      return todosCompletos;
+    }
+
+    // Guardar registro en Google Sheets
+    async function guardarRegistro(nombre, equipo) {
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            nombre: nombre,
+            equipo: equipo.toString()
+          })
+        });
+        
+        const data = await response.json();
+        return data;
+        
+      } catch (error) {
+        console.error('Error al guardar:', error);
+        return { status: 'error', message: 'Error de conexión' };
+      }
     }
 
     /* ========== INTERFAZ DE USUARIO ========== */
@@ -357,19 +361,19 @@
     const contadorTotal = document.getElementById('contador-total');
     const btnResultados = document.getElementById('btnResultados');
 
-    // Actualizar lista desplegable de equipos
-    function actualizarSelectEquipos() {
-      const cuenta = contarPorEquipo();
+    // Actualizar select de equipos desde Google Sheets
+    async function actualizarSelectEquipos() {
+      const conteo = await cargarConteoEquipos();
       const equipoSeleccionado = select.value;
       
-      // Limpiar opciones (excepto la primera)
+      // Limpiar opciones
       while (select.options.length > 1) {
         select.remove(1);
       }
       
       // Agregar equipos 1-12
       for (let i = 1; i <= TOTAL_EQUIPOS; i++) {
-        const personas = cuenta[i] || 0;
+        const personas = conteo[i] || 0;
         const disponible = personas < MAX_POR_EQUIPO;
         
         const option = document.createElement('option');
@@ -384,19 +388,19 @@
         select.appendChild(option);
       }
       
-      // Restaurar selección si sigue disponible
+      // Restaurar selección
       if (equipoSeleccionado && select.querySelector(`option[value="${equipoSeleccionado}"]:not([disabled])`)) {
         select.value = equipoSeleccionado;
       }
     }
 
-    // Actualizar panel de estado visual
-    function actualizarPanelEstado() {
-      const cuenta = contarPorEquipo();
+    // Actualizar panel de estado
+    async function actualizarPanelEstado() {
+      const conteo = await cargarConteoEquipos();
       estadoEquipos.innerHTML = '';
       
       for (let i = 1; i <= TOTAL_EQUIPOS; i++) {
-        const personas = cuenta[i] || 0;
+        const personas = conteo[i] || 0;
         const porcentaje = (personas / MAX_POR_EQUIPO) * 100;
         const estaLleno = personas >= MAX_POR_EQUIPO;
         const disponible = MAX_POR_EQUIPO - personas;
@@ -426,12 +430,12 @@
       }
     }
 
-    // Actualizar tabla de registros (sin botones de eliminar)
-    function actualizarTabla() {
-      const registros = obtenerRegistros();
+    // Actualizar tabla de registros
+    async function actualizarTabla() {
+      const registros = await cargarRegistros();
       tabla.innerHTML = '';
       
-      if (registros.length === 0) {
+      if (!registros || registros.length === 0) {
         tabla.innerHTML = `
           <tr>
             <td colspan="4" class="text-center py-5 text-muted">
@@ -455,19 +459,39 @@
         });
       }
       
-      // Actualizar contador
       contadorTotal.textContent = `${registros.length} registro${registros.length !== 1 ? 's' : ''}`;
     }
 
-    // Actualizar toda la interfaz
-    function actualizarInterfaz() {
-      actualizarSelectEquipos();
-      actualizarPanelEstado();
-      actualizarTabla();
-      verificarEquiposCompletos();
+    // Verificar si todos los equipos están completos
+    async function verificarEquiposCompletos() {
+      const conteo = await cargarConteoEquipos();
+      
+      let todosCompletos = true;
+      for (let i = 1; i <= TOTAL_EQUIPOS; i++) {
+        if (conteo[i] < MAX_POR_EQUIPO) {
+          todosCompletos = false;
+          break;
+        }
+      }
+      
+      btnResultados.disabled = !todosCompletos;
+      return todosCompletos;
     }
 
-    // Mostrar mensajes temporales
+    // Actualizar toda la interfaz
+    async function actualizarInterfaz() {
+      try {
+        await actualizarSelectEquipos();
+        await actualizarPanelEstado();
+        await actualizarTabla();
+        await verificarEquiposCompletos();
+      } catch (error) {
+        console.error('Error al actualizar:', error);
+        mostrarMensaje('Error al actualizar los datos', 'error');
+      }
+    }
+
+    // Mostrar mensajes
     function mostrarMensaje(texto, tipo = 'info') {
       const iconos = {
         success: 'fa-check-circle',
@@ -491,7 +515,6 @@
         </div>
       `;
       
-      // Auto-eliminar después de 5 segundos
       setTimeout(() => {
         const alert = msg.querySelector('.alert');
         if (alert) {
@@ -501,25 +524,8 @@
       }, 5000);
     }
 
-    // Función para redirigir a resultados.html
-    function verResultados() {
-      if (!btnResultados.disabled) {
-        // Guardar estado actual en localStorage para que resultados.html pueda acceder
-        const estado = {
-          totalRegistros: obtenerRegistros().length,
-          equiposCompletos: true,
-          timestamp: new Date().toISOString()
-        };
-        localStorage.setItem('estado_resultados', JSON.stringify(estado));
-        
-        // Redirigir a resultados.html
-        window.location.href = 'resultados.html';
-      }
-    }
-
     /* ========== EVENT LISTENERS ========== */
-    // Envío del formulario
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
       e.preventDefault();
       
       const nombreInput = document.getElementById('nombre');
@@ -530,82 +536,69 @@
       
       if (!nombre) {
         mostrarMensaje('Por favor, ingresa un nombre completo', 'error');
-        nombreInput.focus();
         return;
       }
       
       if (!equipo) {
-        mostrarMensaje('Por favor, selecciona un equipo disponible', 'error');
-        equipoSelect.focus();
+        mostrarMensaje('Por favor, selecciona un equipo', 'error');
         return;
       }
       
-      // Verificar que el equipo no esté lleno
-      const cuenta = contarPorEquipo();
-      const equipoNum = parseInt(equipo);
-      
-      if (cuenta[equipoNum] >= MAX_POR_EQUIPO) {
-        mostrarMensaje(`El equipo ${equipo} ya está lleno (${MAX_POR_EQUIPO}/${MAX_POR_EQUIPO})`, 'error');
+      // Verificar disponibilidad local primero
+      const conteo = await cargarConteoEquipos();
+      if (conteo[equipo] >= MAX_POR_EQUIPO) {
+        mostrarMensaje(`El equipo ${equipo} ya está lleno`, 'error');
         actualizarInterfaz();
         return;
       }
       
-      // Agregar registro
-      const nuevoReg = agregarRegistro(nombre, equipo);
-      
-      // Deshabilitar formulario temporalmente para evitar doble registro
+      // Deshabilitar botón
       const btnSubmit = form.querySelector('button[type="submit"]');
       btnSubmit.disabled = true;
       btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registrando...';
       
-      // Actualizar interfaz después de breve pausa
-      setTimeout(() => {
-        actualizarInterfaz();
+      // Guardar en Google Sheets
+      const resultado = await guardarRegistro(nombre, equipo);
+      
+      if (resultado.status === 'ok') {
+        mostrarMensaje(`<strong>${nombre}</strong> registrado en <strong>Equipo ${equipo}</strong>`, 'success');
         form.reset();
         
-        // Restaurar botón
-        btnSubmit.disabled = false;
-        btnSubmit.innerHTML = '<i class="fas fa-save me-2"></i>Registrar Persona';
+        // Actualizar interfaz
+        await actualizarInterfaz();
         
-        // Mostrar confirmación
-        mostrarMensaje(`
-          <strong>${nuevoReg.nombre}</strong> ha sido registrado en <strong>Equipo ${nuevoReg.equipo}</strong>
-        `, 'success');
-        
-        // Verificar si ahora todos los equipos están completos
-        if (verificarEquiposCompletos()) {
-          mostrarMensaje('¡Todos los equipos están completos! Ya puedes ver los resultados.', 'success');
+        // Verificar si todos completos
+        if (await verificarEquiposCompletos()) {
+          mostrarMensaje('¡Todos los equipos están completos!', 'success');
         }
-        
-      }, 800);
+      } else {
+        mostrarMensaje(`Error: ${resultado.message}`, 'error');
+      }
+      
+      // Restaurar botón
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = '<i class="fas fa-save me-2"></i>Registrar Persona';
     });
 
     /* ========== INICIALIZACIÓN ========== */
-    document.addEventListener('DOMContentLoaded', function() {
-      // Cargar datos iniciales
-      actualizarInterfaz();
+    document.addEventListener('DOMContentLoaded', async function() {
+      mostrarMensaje('Conectando con Google Sheets...', 'info');
       
-      // Verificar si hay datos existentes
-      const registros = obtenerRegistros();
-      if (registros.length > 0) {
-        mostrarMensaje(`Sistema cargado con ${registros.length} registro(s) existente(s)`, 'info');
-      } else {
-        mostrarMensaje('Sistema listo. Comienza registrando personas.', 'info');
-      }
+      // Cargar datos iniciales
+      await actualizarInterfaz();
+      
+      // Actualizar automáticamente cada 5 segundos
+      setInterval(async () => {
+        await actualizarInterfaz();
+      }, 5000);
     });
 
-    // Prevenir navegación atrás con mensaje
-    window.addEventListener('beforeunload', function (e) {
-      const registros = obtenerRegistros();
-      if (registros.length > 0) {
-        // Opcional: Mostrar mensaje de confirmación al salir
-        // e.preventDefault();
-        // e.returnValue = 'Los registros se guardan automáticamente. ¿Seguro que quieres salir?';
+    // Redirigir a resultados
+    function verResultados() {
+      if (!btnResultados.disabled) {
+        window.location.href = 'resultados.html';
       }
-    });
+    }
   </script>
-  
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
