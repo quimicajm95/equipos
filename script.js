@@ -1,7 +1,6 @@
-/* CONFIG: misma URL que en index.html */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXMFxSScjXfXNU7MnSuy3psCOKWyRh9UEZ2P7WmMDRabYA-jkqz665CGKDe';
+/* CONFIG */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXMFxSScjXfXNU7MnSuy3psCOKWyRh9UEZ2P7WmMDRabYA-jkqz665CGKDe'; // <-- misma URL
 
-/* EXPERIMENTOS */
 const experimentos = [
   "Humo de brujas",
   "Identificación de iones hierro con tiosianato",
@@ -17,11 +16,12 @@ const experimentos = [
   "Electrolisis y pH"
 ];
 
-/* CARGAR DATOS Y PINTAR */
+/* LEER SHEET Y PINTAR */
 (async () => {
-  const raw = await fetch(SCRIPT_URL + '?action=ver');   // devuelve CSV simple
-  const rows  = (await raw.text()).trim().split('\n').slice(1); // sin cabecera
-  const equipos = {};          // {1:[nombres], 2:[nombres], ...}
+  const raw = await fetch(SCRIPT_URL + '?action=ver');
+  const txt = await raw.text();
+  const rows = txt.trim().split('\n').slice(1); // sin cabecera
+  const equipos = {};
   for (let i = 1; i <= 12; i++) equipos[i] = [];
   rows.forEach(r => {
     const [nombre, eq] = r.split('\t');
