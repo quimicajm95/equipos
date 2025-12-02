@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro de Equipos - Química</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; }
+    label, select, input { display: block; margin: 10px 0; }
+    button { padding: 10px 20px; margin-right: 10px; }
+    #btnResultados:disabled { background: #ccc; cursor: not-allowed; }
+    #msg { margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Registro de Estudiantes - Laboratorio de Química</h1>
+
+  <form id="formulario">
+    <label>Nombre completo:
+      <input type="text" name="nombre" required>
+    </label>
+    <label>Equipo:
+      <select name="equipo" id="equipo" required></select>
+    </label>
+    <button type="submit">Registrar</button>
+  </form>
+
+  <button id="btnResultados" disabled onclick="location.href='resultados.html'">
+    Resultados
+  </button>
+  <div id="msg"></div>
+
+  <script>
+    /* ---------- CONFIG ---------- */
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXMFxSScjXfXNU7MnSuy3psCOKWyRh9UEZ2P7WmMDRabYA-jkqz665CGKDe'; // <-- cambia
+    const MAX_POR_EQUIPO = 5;
+    const EQUIPOS = 12;
+
+    /* ---------- UTILS ---------- */
+    const form = document.getElementById('formulario');
+    const select = document.getElementById('equipo');
+    const btn = document.getElementById('btnResultados');
+    const msg = document.getElementById('msg');
+
+    async function cargarEquipos() {
+      const sp = await fetch(SCRIPT_URL + '?action=listar'); // leeremos la hoja
+      const txt = await sp.text();
+      const rows = txt.trim().split('\n').slice(1); // quitamos cabecera
+      const cuenta = {};
+      for (let i = 1; i <= EQUIPOS; i++) cuenta[i] = 0;
+      rows.forEach(r => {
+        const [, eq] = r.split('\t');
+        if (eq) cuenta[eq]++;
+      });
+      select.innerHTML = '';
+      for (let i = 1; i <= EQUIPOS; i++) {
+        if (cuenta[i] < MAX_POR_EQUIPO) {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = `Equipo ${i} (${cuenta[i]}/${MAX_POR_EQUIPO})`;
+          select.appendChild(opt);
+        }
+      }
+      const llenos = Object.values(cuenta).filter(c => c === MAX_POR_EQUIPO).length;
+      btn.disabled = llenos < EQUIPOS;
+      if (select.children.length === 0 && llenos === EQUIPOS) {
+        btn.disabled = false;
+        msg.textContent = 'Todos los equipos están llenos. Puedes ver resultados.';
+      }
+    }
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const nombre = form.nombre.value.trim();
+      const equipo = form.equipo.value;
+      if (!nombre || !equipo) return;
+      msg.textContent = 'Guardando...';
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({nombre, equipo})
+      });
+      const txt = await res.text();
+      if (txt === 'ok') {
+        msg.textContent = '¡Registrado!';
+        form.reset();
+        cargarEquipos();
+      } else {
+        msg.textContent = 'Error al registrar.';
+      }
+    });
+
+    /* primera carga y polling */
+    cargarEquipos();
+    setInterval(cargarEquipos, 3000);
+  </script>
+</body>
+</html>
