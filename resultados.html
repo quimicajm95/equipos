@@ -261,11 +261,21 @@
     let tipoExportacion = ''; // 'experimentos' o 'registros'
     let modal = null;
 
-    // Obtener registros del LocalStorage
-    function obtenerRegistros() {
-      const datos = localStorage.getItem('registros_equipos');
-      return datos ? JSON.parse(datos) : [];
+ // Obtener Registro dessde Google Sheets:
+async function obtenerRegistrosDesdeGoogleSheets() {
+  try {
+    const response = await fetch('https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec');
+    const data = await response.json();
+    
+    if (data.status === 'ok') {
+      return data.data;
     }
+    return [];
+  } catch (error) {
+    console.error('Error:', error);
+    return [];
+  }
+}
     
     // Asignar experimentos aleatoriamente a equipos (1-12)
     function asignarExperimentosAleatorios() {
@@ -545,3 +555,4 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
