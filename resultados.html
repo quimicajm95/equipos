@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -389,6 +389,7 @@
     let equipoAFijar = null; // Para saber qué equipo fijar
     let tipoFijado = ''; // 'individual' o 'todos'
     let todosRegistros = []; // Almacenar todos los registros
+    let experimentosDisponiblesGlobal = [...EXPERIMENTOS]; // Copia global de experimentos disponibles
 
     // Obtener Registros desde Google Sheets
     async function obtenerRegistrosDesdeGoogleSheets() {
@@ -439,26 +440,72 @@
         fechaFijado: new Date().toISOString()
       };
       localStorage.setItem('equiposFijados', JSON.stringify(fijados));
+      
+      // Actualizar lista global de experimentos disponibles
+      actualizarExperimentosDisponibles();
     }
     
-    // Fijar todos los equipos completos
+    // Actualizar lista de experimentos disponibles (quitando los ya asignados)
+    function actualizarExperimentosDisponibles() {
+      const equiposFijados = obtenerEquiposFijados();
+      const experimentosAsignados = new Set();
+      
+      // Obtener todos los experimentos ya asignados
+      for (let equipo in equiposFijados) {
+        if (equiposFijados[equipo].experimento) {
+          experimentosAsignados.add(equiposFijados[equipo].experimento);
+        }
+      }
+      
+      // Filtrar experimentos disponibles
+      experimentosDisponiblesGlobal = EXPERIMENTOS.filter(exp => !experimentosAsignados.has(exp));
+      
+      return experimentosDisponiblesGlobal;
+    }
+    
+    // Fijar todos los equipos completos con experimentos únicos
     function fijarTodosEquiposCompletos(equiposCompletos) {
       const fijados = obtenerEquiposFijados();
       let experimentosAsignados = {};
       
-      // Asignar experimentos aleatorios a equipos completos
+      // Obtener experimentos ya asignados
+      const experimentosAsignadosSet = new Set();
+      for (let equipo in fijados) {
+        if (fijados[equipo].experimento) {
+          experimentosAsignadosSet.add(fijados[equipo].experimento);
+        }
+      }
+      
+      // Filtrar experimentos disponibles
+      let experimentosDisponibles = EXPERIMENTOS.filter(exp => !experimentosAsignadosSet.has(exp));
+      
+      // Mezclar experimentos disponibles
+      for (let i = experimentosDisponibles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [experimentosDisponibles[i], experimentosDisponibles[j]] = [experimentosDisponibles[j], experimentosDisponibles[i]];
+      }
+      
+      let expIndex = 0;
+      
+      // Asignar experimentos únicos a equipos completos
       for (let equipo = 1; equipo <= 12; equipo++) {
         if (equiposCompletos[equipo] && !fijados[equipo]) {
-          const randomIndex = Math.floor(Math.random() * EXPERIMENTOS.length);
-          const experimento = EXPERIMENTOS[randomIndex];
-          const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
-          
-          guardarEquipoFijado(equipo, experimento, codigo);
-          experimentosAsignados[equipo] = {
-            nombre: experimento,
-            codigo: codigo,
-            fijado: true
-          };
+          if (expIndex < experimentosDisponibles.length) {
+            const experimento = experimentosDisponibles[expIndex];
+            const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
+            
+            guardarEquipoFijado(equipo, experimento, codigo);
+            experimentosAsignados[equipo] = {
+              nombre: experimento,
+              codigo: codigo,
+              fijado: true
+            };
+            expIndex++;
+          } else {
+            // Si no hay más experimentos disponibles
+            mostrarMensaje(`No hay suficientes experimentos disponibles para todos los equipos completos`, 'warning');
+            break;
+          }
         }
       }
       
@@ -478,13 +525,12 @@
       return equiposCompletos;
     }
     
-    // Asignar experimentos a equipos
-    // Equipos fijados mantienen su experimento, otros muestran "Pendiente de asignación"
+    // Asignar experimentos a equipos (experimentos únicos para cada equipo)
     function asignarExperimentos(equiposCompletos) {
       const experimentosAsignados = {};
       const equiposFijados = obtenerEquiposFijados();
       
-      // Primero, contar cuántos experimentos ya están asignados a equipos fijados
+      // Obtener experimentos ya asignados a equipos fijados
       const experimentosUsados = new Set();
       for (let equipo = 1; equipo <= 12; equipo++) {
         if (equiposFijados[equipo]) {
@@ -514,22 +560,23 @@
             asignado: true
           };
         } else if (equiposCompletos[equipo]) {
-          // Si el equipo está completo pero no fijado, asignar experimento aleatorio disponible
+          // Si el equipo está completo pero no fijado
+          // Solo mostrar "Pendiente de asignación" si hay experimentos disponibles
           if (expIndex < experimentosDisponibles.length) {
             experimentosAsignados[equipo] = {
-              nombre: experimentosDisponibles[expIndex],
+              nombre: "Pendiente de asignación",
               codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
               fijado: false,
-              asignado: true
+              asignado: false,
+              disponible: true
             };
-            expIndex++;
           } else {
-            // Si no hay más experimentos disponibles
             experimentosAsignados[equipo] = {
               nombre: "Sin experimento disponible",
               codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
               fijado: false,
-              asignado: false
+              asignado: false,
+              disponible: false
             };
           }
         } else {
@@ -538,12 +585,37 @@
             nombre: "Equipo incompleto",
             codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
             fijado: false,
-            asignado: false
+            asignado: false,
+            disponible: false
           };
         }
       }
       
       return experimentosAsignados;
+    }
+    
+    // Obtener un experimento aleatorio único que no haya sido asignado
+    function obtenerExperimentoUnico() {
+      const equiposFijados = obtenerEquiposFijados();
+      const experimentosAsignados = new Set();
+      
+      // Obtener todos los experimentos ya asignados
+      for (let equipo in equiposFijados) {
+        if (equiposFijados[equipo].experimento) {
+          experimentosAsignados.add(equiposFijados[equipo].experimento);
+        }
+      }
+      
+      // Filtrar experimentos disponibles
+      const experimentosDisponibles = EXPERIMENTOS.filter(exp => !experimentosAsignados.has(exp));
+      
+      if (experimentosDisponibles.length === 0) {
+        return null; // No hay experimentos disponibles
+      }
+      
+      // Seleccionar aleatoriamente uno de los disponibles
+      const randomIndex = Math.floor(Math.random() * experimentosDisponibles.length);
+      return experimentosDisponibles[randomIndex];
     }
     
     // Cargar tabla de experimentos
@@ -554,6 +626,9 @@
       const experimentosAsignados = asignarExperimentos(equiposCompletos);
       const equiposFijados = obtenerEquiposFijados();
       
+      // Actualizar lista de experimentos disponibles
+      actualizarExperimentosDisponibles();
+      
       tabla.innerHTML = '';
       
       for (let equipo = 1; equipo <= 12; equipo++) {
@@ -561,6 +636,9 @@
         const completado = equiposCompletos[equipo];
         const fijado = equiposFijados[equipo] ? true : false;
         const experimento = experimentosAsignados[equipo];
+        
+        // Determinar si se puede fijar este equipo
+        const puedeFijarse = completado && !fijado && experimentosDisponiblesGlobal.length > 0;
         
         const fila = document.createElement('tr');
         fila.innerHTML = `
@@ -577,19 +655,25 @@
               </div>
               <div>
                 <div><strong>${completado ? 'COMPLETO' : 'INCOMPLETO'}</strong></div>
-                <small class="text-muted">${completado ? 'Listo para asignar experimento' : 'Faltan ' + (MAX_POR_EQUIPO - personas) + ' personas'}</small>
+                <small class="text-muted">${completado ? 
+                  (experimentosDisponiblesGlobal.length > 0 ? 
+                    'Listo para asignar experimento' : 
+                    'No hay experimentos disponibles') : 
+                  'Faltan ' + (MAX_POR_EQUIPO - personas) + ' personas'}</small>
               </div>
             </div>
           </td>
           <td>
-            <span class="experiment-badge">${experimento.nombre}</span>
+            <span class="experiment-badge" style="${!experimento.asignado ? 'background: linear-gradient(135deg, #95a5a6, #7f8c8d) !important;' : ''}">
+              ${experimento.nombre}
+            </span>
             ${experimento.asignado ? '<span class="badge-experimento"><i class="fas fa-flask me-1"></i>ASIGNADO</span>' : ''}
           </td>
           <td class="text-center">${experimento.codigo}</td>
           <td class="text-center">
             <button class="btn btn-fijar" 
                     onclick="solicitarPasswordFijar(${equipo})" 
-                    ${!completado || fijado ? 'disabled' : ''}>
+                    ${!puedeFijarse ? 'disabled' : ''}>
               <i class="fas ${fijado ? 'fa-lock' : 'fa-lock-open'} me-1"></i>
               ${fijado ? 'Fijado' : 'Fijar'}
             </button>
@@ -602,10 +686,14 @@
       const equiposCompletosList = Object.values(equiposCompletos).filter(v => v === true).length;
       const equiposCompletosFijados = Object.keys(equiposFijados).filter(e => equiposCompletos[e]).length;
       const btnFijarTodos = document.getElementById('btn-fijar-todos');
-      btnFijarTodos.disabled = equiposCompletosList === 0 || equiposCompletosList === equiposCompletosFijados;
-      btnFijarTodos.textContent = equiposCompletosList > 0 ? 
+      const puedeFijarTodos = equiposCompletosList > equiposCompletosFijados && experimentosDisponiblesGlobal.length >= (equiposCompletosList - equiposCompletosFijados);
+      
+      btnFijarTodos.disabled = !puedeFijarTodos;
+      btnFijarTodos.textContent = puedeFijarTodos ? 
         `Fijar ${equiposCompletosList - equiposCompletosFijados} Equipos Completos` : 
-        'No hay equipos completos';
+        (experimentosDisponiblesGlobal.length === 0 ? 
+          'No hay experimentos disponibles' : 
+          'No hay equipos completos para fijar');
       
       return experimentosAsignados;
     }
@@ -663,14 +751,18 @@
     function solicitarPasswordFijar(equipo) {
       equipoAFijar = equipo;
       
+      // Verificar si hay experimentos disponibles
+      actualizarExperimentosDisponibles();
+      
       if (equipo === 'todos') {
         tipoFijado = 'todos';
+        const equiposCompletosFijables = calcularEquiposCompletosFijables();
         document.getElementById('fijar-mensaje').textContent = 
-          'Se fijarán TODOS los equipos completos y se asignarán experimentos aleatorios.';
+          `Se fijarán ${equiposCompletosFijables} equipo(s) completos y se asignarán experimentos únicos.`;
       } else {
         tipoFijado = 'individual';
         document.getElementById('fijar-mensaje').textContent = 
-          `Se fijará el EQUIPO ${equipo} y se asignará un experimento aleatorio.`;
+          `Se fijará el EQUIPO ${equipo} y se asignará un experimento único.`;
       }
       
       document.getElementById('passwordFijar').value = '';
@@ -681,6 +773,21 @@
       }
       
       fijarModal.show();
+    }
+    
+    // Calcular cuántos equipos completos se pueden fijar
+    async function calcularEquiposCompletosFijables() {
+      const equiposCompletos = await verificarEquiposCompletos();
+      const equiposFijados = obtenerEquiposFijados();
+      
+      let equiposCompletosNoFijados = 0;
+      for (let equipo = 1; equipo <= 12; equipo++) {
+        if (equiposCompletos[equipo] && !equiposFijados[equipo]) {
+          equiposCompletosNoFijados++;
+        }
+      }
+      
+      return Math.min(equiposCompletosNoFijados, experimentosDisponiblesGlobal.length);
     }
     
     // Verificar contraseña para exportar
@@ -722,14 +829,20 @@
         const equiposCompletos = await verificarEquiposCompletos();
         
         if (tipoFijado === 'todos') {
+          // Verificar que haya experimentos disponibles
+          if (experimentosDisponiblesGlobal.length === 0) {
+            mostrarMensaje('No hay experimentos disponibles para asignar', 'error');
+            return;
+          }
+          
           // Fijar todos los equipos completos
           const equiposFijados = fijarTodosEquiposCompletos(equiposCompletos);
           const equiposFijadosCount = Object.keys(equiposFijados).length;
           
           if (equiposFijadosCount > 0) {
-            mostrarMensajeExito(`¡${equiposFijadosCount} equipo(s) completos han sido fijados!`);
+            mostrarMensajeExito(`¡${equiposFijadosCount} equipo(s) completos han sido fijados con experimentos únicos!`);
           } else {
-            mostrarMensaje('No hay equipos completos para fijar', 'warning');
+            mostrarMensaje('No hay equipos completos para fijar o no hay experimentos disponibles', 'warning');
           }
         } else {
           // Verificar que el equipo esté completo
@@ -738,9 +851,15 @@
             return;
           }
           
-          // Fijar equipo individual
+          // Verificar que haya experimentos disponibles
+          if (experimentosDisponiblesGlobal.length === 0) {
+            mostrarMensaje('No hay experimentos disponibles para asignar', 'error');
+            return;
+          }
+          
+          // Fijar equipo individual con experimento único
           fijarEquipoIndividual(equipoAFijar);
-          mostrarMensajeExito(`¡Equipo ${equipoAFijar} fijado correctamente!`);
+          mostrarMensajeExito(`¡Equipo ${equipoAFijar} fijado con experimento único!`);
         }
         
         // Recargar la tabla
@@ -756,29 +875,19 @@
       }
     }
     
-    // Fijar equipo individual
+    // Fijar equipo individual con experimento único
     function fijarEquipoIndividual(equipo) {
-      // Obtener experimentos ya asignados a equipos fijados
-      const equiposFijados = obtenerEquiposFijados();
-      const experimentosUsados = new Set();
+      // Obtener experimento único disponible
+      const experimentoUnico = obtenerExperimentoUnico();
       
-      for (let eq in equiposFijados) {
-        experimentosUsados.add(equiposFijados[eq].experimento);
-      }
-      
-      // Buscar un experimento no usado
-      const experimentosDisponibles = EXPERIMENTOS.filter(exp => !experimentosUsados.has(exp));
-      
-      if (experimentosDisponibles.length === 0) {
+      if (!experimentoUnico) {
         mostrarMensaje('No hay experimentos disponibles para asignar', 'error');
         return;
       }
       
-      const randomIndex = Math.floor(Math.random() * experimentosDisponibles.length);
-      const experimento = experimentosDisponibles[randomIndex];
       const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
       
-      guardarEquipoFijado(equipo, experimento, codigo);
+      guardarEquipoFijado(equipo, experimentoUnico, codigo);
     }
     
     // Exportar tabla de experimentos como CSV
@@ -908,6 +1017,9 @@
       // Inicializar modales
       modal = new bootstrap.Modal(document.getElementById('passwordModal'));
       fijarModal = new bootstrap.Modal(document.getElementById('fijarModal'));
+      
+      // Inicializar lista de experimentos disponibles
+      actualizarExperimentosDisponibles();
       
       // Cargar datos iniciales
       await cargarDatos();
