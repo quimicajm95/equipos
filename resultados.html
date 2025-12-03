@@ -52,6 +52,21 @@
       font-weight: 600;
       margin-top: 10px;
     }
+    .btn-fijar {
+      background: linear-gradient(135deg, var(--warning), #e67e22);
+      border: none;
+      padding: 6px 15px;
+      border-radius: 20px;
+      color: white;
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-left: 5px;
+    }
+    .btn-fijar:disabled {
+      background: #7f8c8d;
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     h1, h2, h3, h4, h5, h6 {
       color: white;
     }
@@ -129,6 +144,22 @@
       margin-bottom: 30px;
       border-left: 5px solid var(--warning);
     }
+    .badge-fijado {
+      background: linear-gradient(135deg, var(--warning), #e67e22);
+      color: white;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
+    .badge-experimento {
+      background: linear-gradient(135deg, #27ae60, #229954);
+      color: white;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
@@ -150,19 +181,25 @@
         <h3 class="table-title mb-0">
           <i class="fas fa-flask me-2"></i>Asignación de Experimentos por Equipo
         </h3>
-        <button class="btn btn-export" onclick="solicitarPassword('experimentos')">
-          <i class="fas fa-download me-2"></i>Exportar CSV
-        </button>
+        <div>
+          <button class="btn btn-fijar" onclick="solicitarPasswordFijar('todos')" id="btn-fijar-todos">
+            <i class="fas fa-lock me-1"></i>Fijar Todos los Equipos
+          </button>
+          <button class="btn btn-export" onclick="solicitarPassword('experimentos')">
+            <i class="fas fa-download me-2"></i>Exportar CSV
+          </button>
+        </div>
       </div>
       
       <div class="table-responsive">
         <table class="table table-dark-custom readonly-table">
           <thead>
             <tr>
-              <th width="20%">Equipo</th>
-              <th width="40%">Experimento Asignado</th>
-              <th width="20%">Código</th>
-              <th width="20%">Estado</th>
+              <th width="15%">Equipo</th>
+              <th width="35%">Experimento Asignado</th>
+              <th width="15%">Código</th>
+              <th width="15%">Estado</th>
+              <th width="20%">Acción</th>
             </tr>
           </thead>
           <tbody id="tabla-experimentos">
@@ -189,8 +226,8 @@
             <tr>
               <th width="10%">#</th>
               <th width="30%">Nombre Completo</th>
-              <th width="20%">Equipo</th>
-              <th width="20%">Experimento</th>
+              <th width="15%">Equipo</th>
+              <th width="25%">Experimento</th>
               <th width="20%">Fecha de Registro</th>
             </tr>
           </thead>
@@ -209,7 +246,7 @@
     </div>
   </div>
 
-  <!-- MODAL PARA CONTRASEÑA -->
+  <!-- MODAL PARA CONTRASEÑA (EXPORTAR) -->
   <div class="modal fade password-modal" id="passwordModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -236,6 +273,43 @@
     </div>
   </div>
 
+  <!-- MODAL PARA FIJAR EQUIPOS -->
+  <div class="modal fade password-modal" id="fijarModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-lock me-2"></i>Fijar Equipo
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>¡Atención!</strong> Al fijar el equipo:
+            <ul class="mb-0 mt-2">
+              <li>Se asignará un experimento aleatorio</li>
+              <li>Los datos no se podrán modificar</li>
+              <li>Esta acción es irreversible</li>
+            </ul>
+          </div>
+          <p id="fijar-mensaje"></p>
+          <div class="mb-3">
+            <label for="passwordFijar" class="form-label">Contraseña de administrador:</label>
+            <input type="password" class="form-control" id="passwordFijar" placeholder="Contraseña">
+          </div>
+          <div id="fijarError" class="alert alert-danger d-none">
+            <i class="fas fa-times-circle me-2"></i>Contraseña incorrecta
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-warning" onclick="verificarPasswordFijar()">Fijar Equipo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // CONFIGURACIÓN
     const EXPERIMENTOS = [
@@ -254,32 +328,83 @@
     ];
     
     const PASSWORD = "Lab3Farmacia2024"; // Contraseña para exportar
+    const PASSWORD_FIJAR = "AdminLab3"; // Contraseña para fijar equipos
     const CORREO_DESTINO = "quimicajm95@gmail.com";
     const ASUNTO_CORREO = "Equipos Lab 3-Farmacia";
     
     // Variables globales
     let tipoExportacion = ''; // 'experimentos' o 'registros'
     let modal = null;
+    let fijarModal = null;
+    let equipoAFijar = null; // Para saber qué equipo fijar
+    let tipoFijado = ''; // 'individual' o 'todos'
 
- // Obtener Registro dessde Google Sheets:
-async function obtenerRegistrosDesdeGoogleSheets() {
-  try {
-    const response = await fetch('https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec');
-    const data = await response.json();
-    
-    if (data.status === 'ok') {
-      return data.data;
+    // Obtener Registros desde Google Sheets:
+    async function obtenerRegistrosDesdeGoogleSheets() {
+      try {
+        const response = await fetch('https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec');
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          return data.data;
+        }
+        return [];
+      } catch (error) {
+        console.error('Error:', error);
+        return [];
+      }
     }
-    return [];
-  } catch (error) {
-    console.error('Error:', error);
-    return [];
-  }
-}
+    
+    // Obtener equipos fijados desde localStorage
+    function obtenerEquiposFijados() {
+      const fijados = localStorage.getItem('equiposFijados');
+      return fijados ? JSON.parse(fijados) : {};
+    }
+    
+    // Guardar equipos fijados en localStorage
+    function guardarEquipoFijado(equipo, experimento, codigo) {
+      const fijados = obtenerEquiposFijados();
+      fijados[equipo] = {
+        fijado: true,
+        experimento: experimento,
+        codigo: codigo,
+        fechaFijado: new Date().toISOString()
+      };
+      localStorage.setItem('equiposFijados', JSON.stringify(fijados));
+    }
+    
+    // Fijar todos los equipos completos
+    function fijarTodosEquiposCompletos() {
+      const equiposCompletos = verificarEquiposCompletos();
+      const fijados = obtenerEquiposFijados();
+      let experimentosAsignados = {};
+      
+      // Asignar experimentos aleatorios a equipos completos
+      for (let equipo = 1; equipo <= 12; equipo++) {
+        if (equiposCompletos[equipo] && !fijados[equipo]) {
+          const randomIndex = Math.floor(Math.random() * EXPERIMENTOS.length);
+          const experimento = EXPERIMENTOS[randomIndex];
+          const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
+          
+          guardarEquipoFijado(equipo, experimento, codigo);
+          experimentosAsignados[equipo] = {
+            nombre: experimento,
+            codigo: codigo,
+            fijado: true
+          };
+        }
+      }
+      
+      return experimentosAsignados;
+    }
     
     // Asignar experimentos aleatoriamente a equipos (1-12)
+    // Los equipos fijados mantienen su experimento asignado
     function asignarExperimentosAleatorios() {
       const experimentosAsignados = {};
+      const equiposFijados = obtenerEquiposFijados();
+      
+      // Para equipos no fijados, usar lista aleatoria
       const experimentosDisponibles = [...EXPERIMENTOS];
       
       // Mezclar array de experimentos
@@ -288,13 +413,25 @@ async function obtenerRegistrosDesdeGoogleSheets() {
         [experimentosDisponibles[i], experimentosDisponibles[j]] = [experimentosDisponibles[j], experimentosDisponibles[i]];
       }
       
-      // Asignar a equipos 1-12
+      // Asignar experimentos
+      let expIndex = 0;
       for (let equipo = 1; equipo <= 12; equipo++) {
-        experimentosAsignados[equipo] = {
-          nombre: experimentosDisponibles[equipo - 1],
-          codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
-          completado: false
-        };
+        if (equiposFijados[equipo]) {
+          // Si el equipo está fijado, usar el experimento guardado
+          experimentosAsignados[equipo] = {
+            nombre: equiposFijados[equipo].experimento,
+            codigo: equiposFijados[equipo].codigo,
+            fijado: true
+          };
+        } else {
+          // Si no está fijado, asignar experimento aleatorio
+          experimentosAsignados[equipo] = {
+            nombre: experimentosDisponibles[expIndex],
+            codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
+            fijado: false
+          };
+          expIndex++;
+        }
       }
       
       return experimentosAsignados;
@@ -331,20 +468,24 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       const tabla = document.getElementById('tabla-experimentos');
       const experimentosAsignados = asignarExperimentosAleatorios();
       const equiposCompletos = verificarEquiposCompletos();
+      const equiposFijados = obtenerEquiposFijados();
       
       tabla.innerHTML = '';
       
       for (let equipo = 1; equipo <= 12; equipo++) {
         const experimento = experimentosAsignados[equipo];
         const completado = equiposCompletos[equipo];
+        const fijado = equiposFijados[equipo] ? true : false;
         
         const fila = document.createElement('tr');
         fila.innerHTML = `
           <td class="text-center">
             <span class="team-badge">Equipo ${equipo}</span>
+            ${fijado ? '<span class="badge-fijado"><i class="fas fa-lock me-1"></i>FIJADO</span>' : ''}
           </td>
           <td>
             <span class="experiment-badge">${experimento.nombre}</span>
+            ${fijado ? '<span class="badge-experimento"><i class="fas fa-flask me-1"></i>ASIGNADO</span>' : ''}
           </td>
           <td class="text-center">${experimento.codigo}</td>
           <td class="text-center">
@@ -353,9 +494,22 @@ async function obtenerRegistrosDesdeGoogleSheets() {
               ${completado ? 'COMPLETO' : 'PENDIENTE'}
             </span>
           </td>
+          <td class="text-center">
+            <button class="btn btn-fijar" 
+                    onclick="solicitarPasswordFijar(${equipo})" 
+                    ${!completado || fijado ? 'disabled' : ''}>
+              <i class="fas ${fijado ? 'fa-lock' : 'fa-lock-open'} me-1"></i>
+              ${fijado ? 'Fijado' : 'Fijar'}
+            </button>
+          </td>
         `;
         tabla.appendChild(fila);
       }
+      
+      // Actualizar estado del botón "Fijar Todos"
+      const todosCompletos = Object.values(equiposCompletos).every(v => v === true);
+      const todosFijados = Object.keys(equiposFijados).length === 12;
+      document.getElementById('btn-fijar-todos').disabled = !todosCompletos || todosFijados;
       
       return experimentosAsignados;
     }
@@ -396,7 +550,7 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       });
     }
     
-    // Función para solicitar contraseña
+    // Función para solicitar contraseña (exportar)
     function solicitarPassword(tipo) {
       tipoExportacion = tipo;
       document.getElementById('passwordInput').value = '';
@@ -409,7 +563,31 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       modal.show();
     }
     
-    // Verificar contraseña y exportar
+    // Función para solicitar contraseña para fijar
+    function solicitarPasswordFijar(equipo) {
+      equipoAFijar = equipo;
+      
+      if (equipo === 'todos') {
+        tipoFijado = 'todos';
+        document.getElementById('fijar-mensaje').textContent = 
+          'Se fijarán TODOS los equipos completos y se asignarán experimentos aleatorios.';
+      } else {
+        tipoFijado = 'individual';
+        document.getElementById('fijar-mensaje').textContent = 
+          `Se fijará el EQUIPO ${equipo} y se asignará un experimento aleatorio.`;
+      }
+      
+      document.getElementById('passwordFijar').value = '';
+      document.getElementById('fijarError').classList.add('d-none');
+      
+      if (!fijarModal) {
+        fijarModal = new bootstrap.Modal(document.getElementById('fijarModal'));
+      }
+      
+      fijarModal.show();
+    }
+    
+    // Verificar contraseña para exportar
     function verificarPassword() {
       const passwordIngresada = document.getElementById('passwordInput').value;
       const errorDiv = document.getElementById('passwordError');
@@ -426,7 +604,7 @@ async function obtenerRegistrosDesdeGoogleSheets() {
         }
         
         // Mostrar mensaje de éxito
-        mostrarMensajeExito();
+        mostrarMensajeExito('Archivo CSV generado correctamente.');
         
       } else {
         errorDiv.classList.remove('d-none');
@@ -435,22 +613,63 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       }
     }
     
+    // Verificar contraseña para fijar
+    function verificarPasswordFijar() {
+      const passwordIngresada = document.getElementById('passwordFijar').value;
+      const errorDiv = document.getElementById('fijarError');
+      
+      if (passwordIngresada === PASSWORD_FIJAR) {
+        errorDiv.classList.add('d-none');
+        fijarModal.hide();
+        
+        if (tipoFijado === 'todos') {
+          // Fijar todos los equipos completos
+          fijarTodosEquiposCompletos();
+          mostrarMensajeExito('¡Todos los equipos completos han sido fijados!');
+        } else {
+          // Fijar equipo individual
+          fijarEquipoIndividual(equipoAFijar);
+          mostrarMensajeExito(`¡Equipo ${equipoAFijar} fijado correctamente!`);
+        }
+        
+        // Recargar la tabla
+        const experimentosAsignados = cargarTablaExperimentos();
+        cargarTablaRegistrosCompletos(experimentosAsignados);
+        
+      } else {
+        errorDiv.classList.remove('d-none');
+        document.getElementById('passwordFijar').value = '';
+        document.getElementById('passwordFijar').focus();
+      }
+    }
+    
+    // Fijar equipo individual
+    function fijarEquipoIndividual(equipo) {
+      const randomIndex = Math.floor(Math.random() * EXPERIMENTOS.length);
+      const experimento = EXPERIMENTOS[randomIndex];
+      const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
+      
+      guardarEquipoFijado(equipo, experimento, codigo);
+    }
+    
     // Exportar tabla de experimentos como CSV y enviar por correo
     function exportarExperimentosCSV() {
       const registros = obtenerRegistros();
       const experimentosAsignados = asignarExperimentosAleatorios();
       const equiposCompletos = verificarEquiposCompletos();
+      const equiposFijados = obtenerEquiposFijados();
       
       // Crear contenido CSV
-      let csvContent = "Equipo,Experimento Asignado,Código,Personas Registradas,Estado,Última Actualización\n";
+      let csvContent = "Equipo,Experimento Asignado,Código,Personas Registradas,Estado,Fijado,Última Actualización\n";
       
       for (let equipo = 1; equipo <= 12; equipo++) {
         const experimento = experimentosAsignados[equipo];
         const personas = contarPersonasPorEquipo(equipo, registros);
         const estado = equiposCompletos[equipo] ? "COMPLETO" : "INCOMPLETO";
+        const fijado = equiposFijados[equipo] ? "SI" : "NO";
         const fecha = new Date().toLocaleString('es-ES');
         
-        csvContent += `"Equipo ${equipo}","${experimento.nombre}","${experimento.codigo}",${personas},"${estado}","${fecha}"\n`;
+        csvContent += `"Equipo ${equipo}","${experimento.nombre}","${experimento.codigo}",${personas},"${estado}","${fijado}","${fecha}"\n`;
       }
       
       // Crear archivo CSV
@@ -466,13 +685,10 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      // Simular envío por correo (en producción se usaría un backend)
+      // Simular envío por correo
       console.log(`Simulando envío a: ${CORREO_DESTINO}`);
       console.log(`Asunto: ${ASUNTO_CORREO}`);
       console.log('Archivo CSV listo para enviar');
-      
-      // En un entorno real, aquí se haría una petición a un servidor para enviar el correo
-      alert('Archivo CSV generado. En un entorno real, se enviaría automáticamente a ' + CORREO_DESTINO);
     }
     
     // Exportar tabla de registros como CSV y enviar por correo
@@ -481,12 +697,13 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       const experimentosAsignados = asignarExperimentosAleatorios();
       
       // Crear contenido CSV
-      let csvContent = "#,Nombre Completo,Equipo,Experimento Asignado,Fecha de Registro\n";
+      let csvContent = "#,Nombre Completo,Equipo,Experimento Asignado,Fecha de Registro,Equipo Fijado\n";
       
       registros.forEach((registro, index) => {
         const experimento = experimentosAsignados[registro.equipo] || {nombre: 'No asignado'};
+        const fijado = obtenerEquiposFijados()[registro.equipo] ? "SI" : "NO";
         
-        csvContent += `${index + 1},"${registro.nombre}","Equipo ${registro.equipo}","${experimento.nombre}","${registro.fecha}"\n`;
+        csvContent += `${index + 1},"${registro.nombre}","Equipo ${registro.equipo}","${experimento.nombre}","${registro.fecha}","${fijado}"\n`;
       });
       
       // Crear archivo CSV
@@ -506,8 +723,6 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       console.log(`Simulando envío a: ${CORREO_DESTINO}`);
       console.log(`Asunto: ${ASUNTO_CORREO}`);
       console.log('Archivo CSV listo para enviar');
-      
-      alert('Archivo CSV generado. En un entorno real, se enviaría automáticamente a ' + CORREO_DESTINO);
     }
     
     // Contar personas por equipo específico
@@ -522,13 +737,13 @@ async function obtenerRegistrosDesdeGoogleSheets() {
     }
     
     // Mostrar mensaje de éxito
-    function mostrarMensajeExito() {
+    function mostrarMensajeExito(mensaje) {
       const alertDiv = document.createElement('div');
       alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
       alertDiv.style.zIndex = '9999';
       alertDiv.innerHTML = `
         <i class="fas fa-check-circle me-2"></i>
-        <strong>¡Éxito!</strong> Archivo CSV generado correctamente.
+        <strong>¡Éxito!</strong> ${mensaje}
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
       `;
       
@@ -546,8 +761,15 @@ async function obtenerRegistrosDesdeGoogleSheets() {
       const experimentosAsignados = cargarTablaExperimentos();
       cargarTablaRegistrosCompletos(experimentosAsignados);
       
-      // Inicializar modal
+      // Inicializar modales
       modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+      fijarModal = new bootstrap.Modal(document.getElementById('fijarModal'));
+      
+      // Actualizar automáticamente cada 10 segundos
+      setInterval(() => {
+        const experimentosAsignados = cargarTablaExperimentos();
+        cargarTablaRegistrosCompletos(experimentosAsignados);
+      }, 10000);
     });
   </script>
   
@@ -555,4 +777,3 @@ async function obtenerRegistrosDesdeGoogleSheets() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
