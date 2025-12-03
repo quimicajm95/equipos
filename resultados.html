@@ -67,6 +67,19 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
+    .btn-reiniciar {
+      background: linear-gradient(135deg, var(--danger), #c0392b);
+      border: none;
+      padding: 8px 20px;
+      border-radius: 30px;
+      color: white;
+      font-weight: 600;
+      margin-top: 10px;
+      margin-left: 10px;
+    }
+    .btn-reiniciar:hover {
+      background: linear-gradient(135deg, #c0392b, #a93226);
+    }
     h1, h2, h3, h4, h5, h6 {
       color: white;
     }
@@ -208,6 +221,14 @@
     .table-dark-custom .bg-secondary {
       color: white !important; /* Asegurar texto blanco en badges */
     }
+    
+    /* Botones en la sección de administración */
+    .admin-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -220,6 +241,16 @@
       <div class="alert alert-info d-inline-block">
         <i class="fas fa-lock me-2"></i>
         <strong>Modo Administrador:</strong> Solo los equipos completos (5 personas) pueden fijarse
+      </div>
+      
+      <!-- ACCIONES DE ADMINISTRADOR -->
+      <div class="admin-actions justify-content-center mt-4">
+        <button class="btn btn-export" onclick="forzarActualizacion()">
+          <i class="fas fa-sync-alt me-2"></i>Actualizar Registro
+        </button>
+        <button class="btn btn-reiniciar" onclick="solicitarReinicio()">
+          <i class="fas fa-redo-alt me-2"></i>Reiniciar Asignación
+        </button>
       </div>
     </div>
 
@@ -358,6 +389,53 @@
     </div>
   </div>
 
+  <!-- MODAL PARA REINICIAR ASIGNACIÓN -->
+  <div class="modal fade password-modal" id="reiniciarModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-exclamation-triangle me-2 text-danger"></i>Reiniciar Asignación
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-danger">
+            <i class="fas fa-radiation me-2"></i>
+            <strong>¡ADVERTENCIA CRÍTICA!</strong> Esta acción:
+            <ul class="mb-0 mt-2">
+              <li><strong>Eliminará TODAS las asignaciones de experimentos</strong></li>
+              <li>Desbloqueará todos los equipos fijados</li>
+              <li>Liberará todos los experimentos para nueva asignación</li>
+              <li><strong>NO afecta los registros de personas</strong> (Google Sheets)</li>
+              <li>Esta acción <strong>NO se puede deshacer</strong></li>
+            </ul>
+          </div>
+          
+          <div class="mb-3">
+            <label for="passwordReiniciar" class="form-label">Contraseña de administrador:</label>
+            <input type="password" class="form-control" id="passwordReiniciar" placeholder="Contraseña">
+          </div>
+          
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="confirmarReinicio">
+            <label class="form-check-label" for="confirmarReinicio">
+              Confirmo que entiendo que esta acción eliminará todas las asignaciones de experimentos
+            </label>
+          </div>
+          
+          <div id="reiniciarError" class="alert alert-danger d-none">
+            <i class="fas fa-times-circle me-2"></i>Contraseña incorrecta o acción no confirmada
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" onclick="verificarReinicio()">Reiniciar Asignación</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // CONFIGURACIÓN
     const EXPERIMENTOS = [
@@ -376,7 +454,7 @@
     ];
     
     const PASSWORD = "Lab3Farmacia2024"; // Contraseña para exportar
-    const PASSWORD_FIJAR = "AdminLab3"; // Contraseña para fijar equipos
+    const PASSWORD_FIJAR = "AdminLab3"; // Contraseña para fijar equipos y reiniciar
     const CORREO_DESTINO = "quimicajm95@gmail.com";
     const ASUNTO_CORREO = "Equipos Lab 3-Farmacia";
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec';
@@ -386,6 +464,7 @@
     let tipoExportacion = ''; // 'experimentos' o 'registros'
     let modal = null;
     let fijarModal = null;
+    let reiniciarModal = null;
     let equipoAFijar = null; // Para saber qué equipo fijar
     let tipoFijado = ''; // 'individual' o 'todos'
     let todosRegistros = []; // Almacenar todos los registros
@@ -461,6 +540,24 @@
       experimentosDisponiblesGlobal = EXPERIMENTOS.filter(exp => !experimentosAsignados.has(exp));
       
       return experimentosDisponiblesGlobal;
+    }
+    
+    // REINICIAR TODAS LAS ASIGNACIONES
+    function reiniciarAsignaciones() {
+      // Eliminar todos los equipos fijados del localStorage
+      localStorage.removeItem('equiposFijados');
+      
+      // Reiniciar lista de experimentos disponibles
+      experimentosDisponiblesGlobal = [...EXPERIMENTOS];
+      
+      // Mostrar mensaje de éxito
+      mostrarMensajeExito('¡Todas las asignaciones han sido reiniciadas! Los experimentos están disponibles para nueva asignación.');
+      
+      // Recargar la tabla
+      setTimeout(async () => {
+        const experimentosAsignados = await cargarTablaExperimentos();
+        await cargarTablaRegistrosCompletos(experimentosAsignados);
+      }, 500);
     }
     
     // Fijar todos los equipos completos con experimentos únicos
@@ -734,6 +831,36 @@
       });
     }
     
+    // FORZAR ACTUALIZACIÓN DEL REGISTRO
+    async function forzarActualizacion() {
+      try {
+        mostrarMensaje('Actualizando registro desde Google Sheets...', 'info');
+        
+        // Cargar datos inmediatamente
+        const experimentosAsignados = await cargarTablaExperimentos();
+        await cargarTablaRegistrosCompletos(experimentosAsignados);
+        
+        mostrarMensajeExito('Registro actualizado correctamente');
+      } catch (error) {
+        console.error('Error al actualizar:', error);
+        mostrarMensaje('Error al actualizar el registro', 'error');
+      }
+    }
+    
+    // SOLICITAR REINICIO DE ASIGNACIÓN
+    function solicitarReinicio() {
+      // Resetear modal de reinicio
+      document.getElementById('passwordReiniciar').value = '';
+      document.getElementById('confirmarReinicio').checked = false;
+      document.getElementById('reiniciarError').classList.add('d-none');
+      
+      if (!reiniciarModal) {
+        reiniciarModal = new bootstrap.Modal(document.getElementById('reiniciarModal'));
+      }
+      
+      reiniciarModal.show();
+    }
+    
     // Función para solicitar contraseña (exportar)
     function solicitarPassword(tipo) {
       tipoExportacion = tipo;
@@ -872,6 +999,30 @@
         errorDiv.classList.remove('d-none');
         document.getElementById('passwordFijar').value = '';
         document.getElementById('passwordFijar').focus();
+      }
+    }
+    
+    // Verificar contraseña para reiniciar
+    function verificarReinicio() {
+      const passwordIngresada = document.getElementById('passwordReiniciar').value;
+      const confirmado = document.getElementById('confirmarReinicio').checked;
+      const errorDiv = document.getElementById('reiniciarError');
+      
+      if (passwordIngresada === PASSWORD_FIJAR && confirmado) {
+        errorDiv.classList.add('d-none');
+        reiniciarModal.hide();
+        
+        // Ejecutar reinicio
+        reiniciarAsignaciones();
+        
+      } else {
+        errorDiv.classList.remove('d-none');
+        if (!confirmado) {
+          errorDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Debes confirmar la acción marcando la casilla';
+        } else {
+          errorDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Contraseña incorrecta';
+        }
+        document.getElementById('passwordReiniciar').value = '';
       }
     }
     
@@ -1017,6 +1168,7 @@
       // Inicializar modales
       modal = new bootstrap.Modal(document.getElementById('passwordModal'));
       fijarModal = new bootstrap.Modal(document.getElementById('fijarModal'));
+      reiniciarModal = new bootstrap.Modal(document.getElementById('reiniciarModal'));
       
       // Inicializar lista de experimentos disponibles
       actualizarExperimentosDisponibles();
