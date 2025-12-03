@@ -160,6 +160,22 @@
       border-radius: 10px;
       margin-left: 5px;
     }
+    .badge-completo {
+      background: linear-gradient(135deg, var(--success), #229954);
+      color: white;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
+    .badge-incompleto {
+      background: linear-gradient(135deg, var(--danger), #c0392b);
+      color: white;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
@@ -171,7 +187,7 @@
       <p class="text-muted">Laboratorio 3 - Farmacia Química</p>
       <div class="alert alert-info d-inline-block">
         <i class="fas fa-lock me-2"></i>
-        Los datos son de solo lectura y no se pueden modificar
+        <strong>Modo Administrador:</strong> Solo los equipos completos (5 personas) pueden fijarse
       </div>
     </div>
 
@@ -183,7 +199,7 @@
         </h3>
         <div>
           <button class="btn btn-fijar" onclick="solicitarPasswordFijar('todos')" id="btn-fijar-todos">
-            <i class="fas fa-lock me-1"></i>Fijar Todos los Equipos
+            <i class="fas fa-lock me-1"></i>Fijar Todos los Equipos Completos
           </button>
           <button class="btn btn-export" onclick="solicitarPassword('experimentos')">
             <i class="fas fa-download me-2"></i>Exportar CSV
@@ -196,10 +212,10 @@
           <thead>
             <tr>
               <th width="15%">Equipo</th>
-              <th width="35%">Experimento Asignado</th>
+              <th width="30%">Estado del Registro</th>
+              <th width="25%">Experimento Asignado</th>
               <th width="15%">Código</th>
-              <th width="15%">Estado</th>
-              <th width="20%">Acción</th>
+              <th width="15%">Acción</th>
             </tr>
           </thead>
           <tbody id="tabla-experimentos">
@@ -331,6 +347,8 @@
     const PASSWORD_FIJAR = "AdminLab3"; // Contraseña para fijar equipos
     const CORREO_DESTINO = "quimicajm95@gmail.com";
     const ASUNTO_CORREO = "Equipos Lab 3-Farmacia";
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec';
+    const MAX_POR_EQUIPO = 5;
     
     // Variables globales
     let tipoExportacion = ''; // 'experimentos' o 'registros'
@@ -338,20 +356,38 @@
     let fijarModal = null;
     let equipoAFijar = null; // Para saber qué equipo fijar
     let tipoFijado = ''; // 'individual' o 'todos'
+    let todosRegistros = []; // Almacenar todos los registros
 
-    // Obtener Registros desde Google Sheets:
+    // Obtener Registros desde Google Sheets
     async function obtenerRegistrosDesdeGoogleSheets() {
       try {
-        const response = await fetch('https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec');
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=listar`);
         const data = await response.json();
         
         if (data.status === 'ok') {
-          return data.data;
+          todosRegistros = data.data;
+          return todosRegistros;
         }
         return [];
       } catch (error) {
         console.error('Error:', error);
         return [];
+      }
+    }
+    
+    // Obtener conteo por equipo desde Google Sheets
+    async function obtenerConteoEquipos() {
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=contar`);
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          return data.conteo;
+        }
+        return {};
+      } catch (error) {
+        console.error('Error:', error);
+        return {};
       }
     }
     
@@ -374,8 +410,7 @@
     }
     
     // Fijar todos los equipos completos
-    function fijarTodosEquiposCompletos() {
-      const equiposCompletos = verificarEquiposCompletos();
+    function fijarTodosEquiposCompletos(equiposCompletos) {
       const fijados = obtenerEquiposFijados();
       let experimentosAsignados = {};
       
@@ -398,84 +433,102 @@
       return experimentosAsignados;
     }
     
-    // Asignar experimentos aleatoriamente a equipos (1-12)
-    // Los equipos fijados mantienen su experimento asignado
-    function asignarExperimentosAleatorios() {
+    // Verificar qué equipos están completos (5 personas)
+    async function verificarEquiposCompletos() {
+      const conteo = await obtenerConteoEquipos();
+      
+      // Crear objeto de equipos completos
+      const equiposCompletos = {};
+      for (let i = 1; i <= 12; i++) {
+        equiposCompletos[i] = (conteo[i] || 0) === MAX_POR_EQUIPO;
+      }
+      
+      return equiposCompletos;
+    }
+    
+    // Asignar experimentos a equipos
+    // Equipos fijados mantienen su experimento, otros muestran "Pendiente de asignación"
+    function asignarExperimentos(equiposCompletos) {
       const experimentosAsignados = {};
       const equiposFijados = obtenerEquiposFijados();
       
-      // Para equipos no fijados, usar lista aleatoria
-      const experimentosDisponibles = [...EXPERIMENTOS];
+      // Primero, contar cuántos experimentos ya están asignados a equipos fijados
+      const experimentosUsados = new Set();
+      for (let equipo = 1; equipo <= 12; equipo++) {
+        if (equiposFijados[equipo]) {
+          experimentosUsados.add(equiposFijados[equipo].experimento);
+        }
+      }
       
-      // Mezclar array de experimentos
+      // Crear lista de experimentos disponibles (no usados por equipos fijados)
+      const experimentosDisponibles = EXPERIMENTOS.filter(exp => !experimentosUsados.has(exp));
+      
+      // Mezclar experimentos disponibles
       for (let i = experimentosDisponibles.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [experimentosDisponibles[i], experimentosDisponibles[j]] = [experimentosDisponibles[j], experimentosDisponibles[i]];
       }
       
-      // Asignar experimentos
       let expIndex = 0;
+      
+      // Asignar experimentos
       for (let equipo = 1; equipo <= 12; equipo++) {
         if (equiposFijados[equipo]) {
           // Si el equipo está fijado, usar el experimento guardado
           experimentosAsignados[equipo] = {
             nombre: equiposFijados[equipo].experimento,
             codigo: equiposFijados[equipo].codigo,
-            fijado: true
+            fijado: true,
+            asignado: true
           };
+        } else if (equiposCompletos[equipo]) {
+          // Si el equipo está completo pero no fijado, asignar experimento aleatorio disponible
+          if (expIndex < experimentosDisponibles.length) {
+            experimentosAsignados[equipo] = {
+              nombre: experimentosDisponibles[expIndex],
+              codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
+              fijado: false,
+              asignado: true
+            };
+            expIndex++;
+          } else {
+            // Si no hay más experimentos disponibles
+            experimentosAsignados[equipo] = {
+              nombre: "Sin experimento disponible",
+              codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
+              fijado: false,
+              asignado: false
+            };
+          }
         } else {
-          // Si no está fijado, asignar experimento aleatorio
+          // Si el equipo no está completo
           experimentosAsignados[equipo] = {
-            nombre: experimentosDisponibles[expIndex],
+            nombre: "Equipo incompleto",
             codigo: `EXP-${equipo.toString().padStart(2, '0')}`,
-            fijado: false
+            fijado: false,
+            asignado: false
           };
-          expIndex++;
         }
       }
       
       return experimentosAsignados;
     }
     
-    // Verificar qué equipos están completos (5 personas)
-    function verificarEquiposCompletos() {
-      const registros = obtenerRegistros();
-      const cuenta = {};
-      
-      // Inicializar contadores
-      for (let i = 1; i <= 12; i++) {
-        cuenta[i] = 0;
-      }
-      
-      // Contar personas por equipo
-      registros.forEach(reg => {
-        if (reg.equipo >= 1 && reg.equipo <= 12) {
-          cuenta[reg.equipo]++;
-        }
-      });
-      
-      // Marcar equipos completos (5 personas)
-      const equiposCompletos = {};
-      for (let i = 1; i <= 12; i++) {
-        equiposCompletos[i] = cuenta[i] === 5;
-      }
-      
-      return equiposCompletos;
-    }
-    
     // Cargar tabla de experimentos
-    function cargarTablaExperimentos() {
+    async function cargarTablaExperimentos() {
       const tabla = document.getElementById('tabla-experimentos');
-      const experimentosAsignados = asignarExperimentosAleatorios();
-      const equiposCompletos = verificarEquiposCompletos();
+      const conteo = await obtenerConteoEquipos();
+      const equiposCompletos = await verificarEquiposCompletos();
+      const experimentosAsignados = asignarExperimentos(equiposCompletos);
       const equiposFijados = obtenerEquiposFijados();
       
       tabla.innerHTML = '';
       
       for (let equipo = 1; equipo <= 12; equipo++) {
-        const experimento = experimentosAsignados[equipo];
+        const personas = conteo[equipo] || 0;
         const completado = equiposCompletos[equipo];
         const fijado = equiposFijados[equipo] ? true : false;
+        const experimento = experimentosAsignados[equipo];
         
         const fila = document.createElement('tr');
         fila.innerHTML = `
@@ -484,16 +537,23 @@
             ${fijado ? '<span class="badge-fijado"><i class="fas fa-lock me-1"></i>FIJADO</span>' : ''}
           </td>
           <td>
+            <div class="d-flex align-items-center">
+              <div class="me-3">
+                <span class="badge ${completado ? 'bg-success' : 'bg-warning'}">
+                  ${personas}/${MAX_POR_EQUIPO}
+                </span>
+              </div>
+              <div>
+                <div><strong>${completado ? 'COMPLETO' : 'INCOMPLETO'}</strong></div>
+                <small class="text-muted">${completado ? 'Listo para asignar experimento' : 'Faltan ' + (MAX_POR_EQUIPO - personas) + ' personas'}</small>
+              </div>
+            </div>
+          </td>
+          <td>
             <span class="experiment-badge">${experimento.nombre}</span>
-            ${fijado ? '<span class="badge-experimento"><i class="fas fa-flask me-1"></i>ASIGNADO</span>' : ''}
+            ${experimento.asignado ? '<span class="badge-experimento"><i class="fas fa-flask me-1"></i>ASIGNADO</span>' : ''}
           </td>
           <td class="text-center">${experimento.codigo}</td>
-          <td class="text-center">
-            <span class="badge ${completado ? 'bg-success' : 'bg-warning'}">
-              <i class="fas ${completado ? 'fa-check-circle' : 'fa-clock'} me-1"></i>
-              ${completado ? 'COMPLETO' : 'PENDIENTE'}
-            </span>
-          </td>
           <td class="text-center">
             <button class="btn btn-fijar" 
                     onclick="solicitarPasswordFijar(${equipo})" 
@@ -507,17 +567,21 @@
       }
       
       // Actualizar estado del botón "Fijar Todos"
-      const todosCompletos = Object.values(equiposCompletos).every(v => v === true);
-      const todosFijados = Object.keys(equiposFijados).length === 12;
-      document.getElementById('btn-fijar-todos').disabled = !todosCompletos || todosFijados;
+      const equiposCompletosList = Object.values(equiposCompletos).filter(v => v === true).length;
+      const equiposCompletosFijados = Object.keys(equiposFijados).filter(e => equiposCompletos[e]).length;
+      const btnFijarTodos = document.getElementById('btn-fijar-todos');
+      btnFijarTodos.disabled = equiposCompletosList === 0 || equiposCompletosList === equiposCompletosFijados;
+      btnFijarTodos.textContent = equiposCompletosList > 0 ? 
+        `Fijar ${equiposCompletosList - equiposCompletosFijados} Equipos Completos` : 
+        'No hay equipos completos';
       
       return experimentosAsignados;
     }
     
     // Cargar tabla de registros completos
-    function cargarTablaRegistrosCompletos(experimentosAsignados) {
+    async function cargarTablaRegistrosCompletos(experimentosAsignados) {
       const tabla = document.getElementById('tabla-registros-completos');
-      const registros = obtenerRegistros();
+      const registros = await obtenerRegistrosDesdeGoogleSheets();
       
       tabla.innerHTML = '';
       
@@ -614,7 +678,7 @@
     }
     
     // Verificar contraseña para fijar
-    function verificarPasswordFijar() {
+    async function verificarPasswordFijar() {
       const passwordIngresada = document.getElementById('passwordFijar').value;
       const errorDiv = document.getElementById('fijarError');
       
@@ -622,19 +686,36 @@
         errorDiv.classList.add('d-none');
         fijarModal.hide();
         
+        // Obtener equipos completos actualizados
+        const equiposCompletos = await verificarEquiposCompletos();
+        
         if (tipoFijado === 'todos') {
           // Fijar todos los equipos completos
-          fijarTodosEquiposCompletos();
-          mostrarMensajeExito('¡Todos los equipos completos han sido fijados!');
+          const equiposFijados = fijarTodosEquiposCompletos(equiposCompletos);
+          const equiposFijadosCount = Object.keys(equiposFijados).length;
+          
+          if (equiposFijadosCount > 0) {
+            mostrarMensajeExito(`¡${equiposFijadosCount} equipo(s) completos han sido fijados!`);
+          } else {
+            mostrarMensaje('No hay equipos completos para fijar', 'warning');
+          }
         } else {
+          // Verificar que el equipo esté completo
+          if (!equiposCompletos[equipoAFijar]) {
+            mostrarMensaje(`El equipo ${equipoAFijar} no está completo (5 personas)`, 'error');
+            return;
+          }
+          
           // Fijar equipo individual
           fijarEquipoIndividual(equipoAFijar);
           mostrarMensajeExito(`¡Equipo ${equipoAFijar} fijado correctamente!`);
         }
         
         // Recargar la tabla
-        const experimentosAsignados = cargarTablaExperimentos();
-        cargarTablaRegistrosCompletos(experimentosAsignados);
+        setTimeout(async () => {
+          const experimentosAsignados = await cargarTablaExperimentos();
+          await cargarTablaRegistrosCompletos(experimentosAsignados);
+        }, 500);
         
       } else {
         errorDiv.classList.remove('d-none');
@@ -645,31 +726,47 @@
     
     // Fijar equipo individual
     function fijarEquipoIndividual(equipo) {
-      const randomIndex = Math.floor(Math.random() * EXPERIMENTOS.length);
-      const experimento = EXPERIMENTOS[randomIndex];
+      // Obtener experimentos ya asignados a equipos fijados
+      const equiposFijados = obtenerEquiposFijados();
+      const experimentosUsados = new Set();
+      
+      for (let eq in equiposFijados) {
+        experimentosUsados.add(equiposFijados[eq].experimento);
+      }
+      
+      // Buscar un experimento no usado
+      const experimentosDisponibles = EXPERIMENTOS.filter(exp => !experimentosUsados.has(exp));
+      
+      if (experimentosDisponibles.length === 0) {
+        mostrarMensaje('No hay experimentos disponibles para asignar', 'error');
+        return;
+      }
+      
+      const randomIndex = Math.floor(Math.random() * experimentosDisponibles.length);
+      const experimento = experimentosDisponibles[randomIndex];
       const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
       
       guardarEquipoFijado(equipo, experimento, codigo);
     }
     
-    // Exportar tabla de experimentos como CSV y enviar por correo
-    function exportarExperimentosCSV() {
-      const registros = obtenerRegistros();
-      const experimentosAsignados = asignarExperimentosAleatorios();
-      const equiposCompletos = verificarEquiposCompletos();
+    // Exportar tabla de experimentos como CSV
+    async function exportarExperimentosCSV() {
+      const conteo = await obtenerConteoEquipos();
+      const equiposCompletos = await verificarEquiposCompletos();
+      const experimentosAsignados = asignarExperimentos(equiposCompletos);
       const equiposFijados = obtenerEquiposFijados();
       
       // Crear contenido CSV
-      let csvContent = "Equipo,Experimento Asignado,Código,Personas Registradas,Estado,Fijado,Última Actualización\n";
+      let csvContent = "Equipo,Personas Registradas,Estado,Experimento Asignado,Código,Fijado,Última Actualización\n";
       
       for (let equipo = 1; equipo <= 12; equipo++) {
-        const experimento = experimentosAsignados[equipo];
-        const personas = contarPersonasPorEquipo(equipo, registros);
+        const personas = conteo[equipo] || 0;
         const estado = equiposCompletos[equipo] ? "COMPLETO" : "INCOMPLETO";
+        const experimento = experimentosAsignados[equipo];
         const fijado = equiposFijados[equipo] ? "SI" : "NO";
         const fecha = new Date().toLocaleString('es-ES');
         
-        csvContent += `"Equipo ${equipo}","${experimento.nombre}","${experimento.codigo}",${personas},"${estado}","${fijado}","${fecha}"\n`;
+        csvContent += `"Equipo ${equipo}",${personas},"${estado}","${experimento.nombre}","${experimento.codigo}","${fijado}","${fecha}"\n`;
       }
       
       // Crear archivo CSV
@@ -684,17 +781,13 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      // Simular envío por correo
-      console.log(`Simulando envío a: ${CORREO_DESTINO}`);
-      console.log(`Asunto: ${ASUNTO_CORREO}`);
-      console.log('Archivo CSV listo para enviar');
     }
     
-    // Exportar tabla de registros como CSV y enviar por correo
-    function exportarRegistrosCSV() {
-      const registros = obtenerRegistros();
-      const experimentosAsignados = asignarExperimentosAleatorios();
+    // Exportar tabla de registros como CSV
+    async function exportarRegistrosCSV() {
+      const registros = await obtenerRegistrosDesdeGoogleSheets();
+      const equiposCompletos = await verificarEquiposCompletos();
+      const experimentosAsignados = asignarExperimentos(equiposCompletos);
       
       // Crear contenido CSV
       let csvContent = "#,Nombre Completo,Equipo,Experimento Asignado,Fecha de Registro,Equipo Fijado\n";
@@ -718,22 +811,6 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      // Simular envío por correo
-      console.log(`Simulando envío a: ${CORREO_DESTINO}`);
-      console.log(`Asunto: ${ASUNTO_CORREO}`);
-      console.log('Archivo CSV listo para enviar');
-    }
-    
-    // Contar personas por equipo específico
-    function contarPersonasPorEquipo(equipo, registros) {
-      let count = 0;
-      registros.forEach(reg => {
-        if (reg.equipo === equipo) {
-          count++;
-        }
-      });
-      return count;
     }
     
     // Mostrar mensaje de éxito
@@ -751,26 +828,73 @@
       
       // Auto-eliminar después de 5 segundos
       setTimeout(() => {
-        const bsAlert = new bootstrap.Alert(alertDiv);
-        bsAlert.close();
+        if (alertDiv.parentNode) {
+          const bsAlert = new bootstrap.Alert(alertDiv);
+          bsAlert.close();
+        }
+      }, 5000);
+    }
+    
+    // Mostrar mensaje general
+    function mostrarMensaje(mensaje, tipo = 'info') {
+      const tipos = {
+        success: 'alert-success',
+        error: 'alert-danger',
+        warning: 'alert-warning',
+        info: 'alert-info'
+      };
+      
+      const iconos = {
+        success: 'fa-check-circle',
+        error: 'fa-times-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+      };
+      
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `alert ${tipos[tipo]} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+      alertDiv.style.zIndex = '9999';
+      alertDiv.innerHTML = `
+        <i class="fas ${iconos[tipo]} me-2"></i>
+        ${mensaje}
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+      `;
+      
+      document.body.appendChild(alertDiv);
+      
+      // Auto-eliminar después de 5 segundos
+      setTimeout(() => {
+        if (alertDiv.parentNode) {
+          const bsAlert = new bootstrap.Alert(alertDiv);
+          bsAlert.close();
+        }
       }, 5000);
     }
     
     // Inicializar la página
-    document.addEventListener('DOMContentLoaded', function() {
-      const experimentosAsignados = cargarTablaExperimentos();
-      cargarTablaRegistrosCompletos(experimentosAsignados);
-      
+    document.addEventListener('DOMContentLoaded', async function() {
       // Inicializar modales
       modal = new bootstrap.Modal(document.getElementById('passwordModal'));
       fijarModal = new bootstrap.Modal(document.getElementById('fijarModal'));
       
+      // Cargar datos iniciales
+      await cargarDatos();
+      
       // Actualizar automáticamente cada 10 segundos
-      setInterval(() => {
-        const experimentosAsignados = cargarTablaExperimentos();
-        cargarTablaRegistrosCompletos(experimentosAsignados);
+      setInterval(async () => {
+        await cargarDatos();
       }, 10000);
     });
+    
+    // Función para cargar todos los datos
+    async function cargarDatos() {
+      try {
+        const experimentosAsignados = await cargarTablaExperimentos();
+        await cargarTablaRegistrosCompletos(experimentosAsignados);
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+      }
+    }
   </script>
   
   <!-- Bootstrap JS -->
