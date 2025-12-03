@@ -80,6 +80,19 @@
     .btn-reiniciar:hover {
       background: linear-gradient(135deg, #c0392b, #a93226);
     }
+    .btn-desfijar {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      border: none;
+      padding: 8px 20px;
+      border-radius: 30px;
+      color: white;
+      font-weight: 600;
+      margin-top: 10px;
+      margin-left: 10px;
+    }
+    .btn-desfijar:hover {
+      background: linear-gradient(135deg, #8e44ad, #7d3c98);
+    }
     h1, h2, h3, h4, h5, h6 {
       color: white;
     }
@@ -229,6 +242,28 @@
       margin-top: 10px;
       flex-wrap: wrap;
     }
+    
+    /* Checkbox para seleccionar equipos a desfijar */
+    .checkbox-equipo {
+      transform: scale(1.2);
+      margin-right: 8px;
+      cursor: pointer;
+    }
+    
+    .equipo-seleccionado {
+      background-color: rgba(155, 89, 182, 0.1) !important;
+      border-left: 3px solid #9b59b6 !important;
+    }
+    
+    /* Contador de equipos seleccionados */
+    .contador-seleccion {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      color: white;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-left: 10px;
+    }
   </style>
 </head>
 <body>
@@ -248,9 +283,21 @@
         <button class="btn btn-export" onclick="forzarActualizacion()">
           <i class="fas fa-sync-alt me-2"></i>Actualizar Registro
         </button>
+        <button class="btn btn-desfijar" onclick="solicitarDesfijar()" id="btn-desfijar">
+          <i class="fas fa-unlock me-2"></i>Desfijar Equipos Seleccionados
+        </button>
         <button class="btn btn-reiniciar" onclick="solicitarReinicio()">
           <i class="fas fa-redo-alt me-2"></i>Reiniciar Asignación
         </button>
+      </div>
+      
+      <!-- CONTADOR DE EQUIPOS SELECCIONADOS -->
+      <div class="mt-3" id="contador-seleccion-container" style="display: none;">
+        <span class="contador-seleccion">
+          <i class="fas fa-check-square me-1"></i>
+          <span id="contador-seleccion">0</span> equipo(s) seleccionado(s)
+        </span>
+        <small class="text-muted ms-2">Haz clic en las casillas para seleccionar equipos a desfijar</small>
       </div>
     </div>
 
@@ -274,8 +321,9 @@
         <table class="table table-dark-custom readonly-table">
           <thead>
             <tr>
+              <th width="5%">Seleccionar</th>
               <th width="15%">Equipo</th>
-              <th width="30%">Estado del Registro</th>
+              <th width="25%">Estado del Registro</th>
               <th width="25%">Experimento Asignado</th>
               <th width="15%">Código</th>
               <th width="15%">Acción</th>
@@ -285,6 +333,16 @@
             <!-- Datos se cargan dinámicamente -->
           </tbody>
         </table>
+      </div>
+      
+      <!-- INSTRUCCIONES PARA DESFIJAR -->
+      <div class="alert alert-warning mt-3" id="instrucciones-desfijar" style="display: none;">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Modo Selección Activado:</strong> 
+        <span id="texto-instrucciones"></span>
+        <button class="btn btn-sm btn-outline-light ms-2" onclick="cancelarSeleccion()">
+          <i class="fas fa-times me-1"></i>Cancelar selección
+        </button>
       </div>
     </div>
 
@@ -389,6 +447,56 @@
     </div>
   </div>
 
+  <!-- MODAL PARA DESFIJAR EQUIPOS -->
+  <div class="modal fade password-modal" id="desfijarModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-unlock me-2"></i>Desfijar Equipos
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>¡Atención!</strong> Esta acción:
+            <ul class="mb-0 mt-2">
+              <li>Desbloqueará los equipos seleccionados</li>
+              <li>Liberará sus experimentos para nueva asignación</li>
+              <li>Los equipos desaparecerán de la vista de usuarios</li>
+              <li>Los registros de personas NO se afectan</li>
+            </ul>
+          </div>
+          
+          <div id="equipos-a-desfijar" class="mb-3">
+            <!-- Aquí se listarán los equipos seleccionados -->
+          </div>
+          
+          <div class="mb-3">
+            <label for="passwordDesfijar" class="form-label">Contraseña de administrador:</label>
+            <input type="password" class="form-control" id="passwordDesfijar" placeholder="Contraseña">
+          </div>
+          
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="confirmarDesfijar">
+            <label class="form-check-label" for="confirmarDesfijar">
+              Confirmo que quiero desfijar los equipos seleccionados
+            </label>
+          </div>
+          
+          <div id="desfijarError" class="alert alert-danger d-none">
+            <i class="fas fa-times-circle me-2"></i>Contraseña incorrecta o acción no confirmada
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-warning" onclick="verificarDesfijar()">Desfijar Equipos</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL PARA REINICIAR ASIGNACIÓN -->
   <div class="modal fade password-modal" id="reiniciarModal" tabindex="-1">
     <div class="modal-dialog">
@@ -455,21 +563,24 @@
     
     const PASSWORD = "Lab3Farmacia2024"; // Contraseña para exportar
     const PASSWORD_FIJAR = "AdminLab3"; // Contraseña para fijar equipos y reiniciar
-    const CORREO_DESTINO = "quimicajm95@gmail.com";
-    const ASUNTO_CORREO = "Equipos Lab 3-Farmacia";
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9vsQgUypBfUThBnf-Jk7fHnBWui7FRZNDNhO5W6qY8LSMgs6g64kF_53gaGF18T3ofQ/exec';
     const MAX_POR_EQUIPO = 5;
+    const TOTAL_EQUIPOS = 12;
     
     // Variables globales
     let tipoExportacion = ''; // 'experimentos' o 'registros'
     let modal = null;
     let fijarModal = null;
+    let desfijarModal = null;
     let reiniciarModal = null;
     let equipoAFijar = null; // Para saber qué equipo fijar
     let tipoFijado = ''; // 'individual' o 'todos'
     let todosRegistros = []; // Almacenar todos los registros
     let experimentosDisponiblesGlobal = [...EXPERIMENTOS]; // Copia global de experimentos disponibles
+    let equiposSeleccionados = new Set(); // Para equipos seleccionados para desfijar
 
+    // ========== FUNCIONES PARA GOOGLE SHEETS ==========
+    
     // Obtener Registros desde Google Sheets
     async function obtenerRegistrosDesdeGoogleSheets() {
       try {
@@ -483,6 +594,7 @@
         return [];
       } catch (error) {
         console.error('Error:', error);
+        mostrarMensaje('Error al cargar registros', 'error');
         return [];
       }
     }
@@ -503,30 +615,102 @@
       }
     }
     
-    // Obtener equipos fijados desde localStorage
-    function obtenerEquiposFijados() {
-      const fijados = localStorage.getItem('equiposFijados');
-      return fijados ? JSON.parse(fijados) : {};
+    // Obtener equipos fijados desde Google Sheets
+    async function obtenerEquiposFijados() {
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerEquiposFijados`);
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          return data.data;
+        }
+        return {};
+      } catch (error) {
+        console.error('Error al obtener equipos fijados:', error);
+        return {};
+      }
     }
     
-    // Guardar equipos fijados en localStorage
-    function guardarEquipoFijado(equipo, experimento, codigo) {
-      const fijados = obtenerEquiposFijados();
-      fijados[equipo] = {
-        fijado: true,
-        experimento: experimento,
-        codigo: codigo,
-        fechaFijado: new Date().toISOString()
-      };
-      localStorage.setItem('equiposFijados', JSON.stringify(fijados));
-      
-      // Actualizar lista global de experimentos disponibles
-      actualizarExperimentosDisponibles();
+    // Guardar equipo fijado en Google Sheets
+    async function guardarEquipoFijado(equipo, experimento, codigo) {
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'fijarEquipo',
+            equipo: equipo,
+            experimento: experimento,
+            codigo: codigo
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          // Actualizar lista global de experimentos disponibles
+          await actualizarExperimentosDisponibles();
+          return data;
+        } else {
+          return { status: 'error', message: data.message || 'Error desconocido' };
+        }
+        
+      } catch (error) {
+        console.error('Error al fijar equipo:', error);
+        return { status: 'error', message: 'Error de conexión' };
+      }
     }
     
-    // Actualizar lista de experimentos disponibles (quitando los ya asignados)
-    function actualizarExperimentosDisponibles() {
-      const equiposFijados = obtenerEquiposFijados();
+    // Desfijar equipo en Google Sheets
+    async function desfijarEquipoEnGoogleSheets(equipo) {
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'desfijarEquipo',
+            equipo: equipo
+          })
+        });
+        
+        const data = await response.json();
+        return data;
+        
+      } catch (error) {
+        console.error('Error al desfijar equipo:', error);
+        return { status: 'error', message: 'Error de conexión' };
+      }
+    }
+    
+    // Reiniciar todos los equipos fijados en Google Sheets
+    async function reiniciarFijadosEnGoogleSheets() {
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'reiniciarFijados'
+          })
+        });
+        
+        const data = await response.json();
+        return data;
+        
+      } catch (error) {
+        console.error('Error al reiniciar fijados:', error);
+        return { status: 'error', message: 'Error de conexión' };
+      }
+    }
+    
+    // Actualizar lista de experimentos disponibles
+    async function actualizarExperimentosDisponibles() {
+      const equiposFijados = await obtenerEquiposFijados();
       const experimentosAsignados = new Set();
       
       // Obtener todos los experimentos ya asignados
@@ -542,34 +726,18 @@
       return experimentosDisponiblesGlobal;
     }
     
-    // REINICIAR TODAS LAS ASIGNACIONES
-    function reiniciarAsignaciones() {
-      // Eliminar todos los equipos fijados del localStorage
-      localStorage.removeItem('equiposFijados');
-      
-      // Reiniciar lista de experimentos disponibles
-      experimentosDisponiblesGlobal = [...EXPERIMENTOS];
-      
-      // Mostrar mensaje de éxito
-      mostrarMensajeExito('¡Todas las asignaciones han sido reiniciadas! Los experimentos están disponibles para nueva asignación.');
-      
-      // Recargar la tabla
-      setTimeout(async () => {
-        const experimentosAsignados = await cargarTablaExperimentos();
-        await cargarTablaRegistrosCompletos(experimentosAsignados);
-      }, 500);
-    }
+    // ========== FUNCIONES PRINCIPALES ==========
     
     // Fijar todos los equipos completos con experimentos únicos
-    function fijarTodosEquiposCompletos(equiposCompletos) {
-      const fijados = obtenerEquiposFijados();
-      let experimentosAsignados = {};
+    async function fijarTodosEquiposCompletos(equiposCompletos) {
+      const equiposFijados = await obtenerEquiposFijados();
+      const equiposFijadosArray = [];
       
       // Obtener experimentos ya asignados
       const experimentosAsignadosSet = new Set();
-      for (let equipo in fijados) {
-        if (fijados[equipo].experimento) {
-          experimentosAsignadosSet.add(fijados[equipo].experimento);
+      for (let equipo in equiposFijados) {
+        if (equiposFijados[equipo].experimento) {
+          experimentosAsignadosSet.add(equiposFijados[equipo].experimento);
         }
       }
       
@@ -585,19 +753,19 @@
       let expIndex = 0;
       
       // Asignar experimentos únicos a equipos completos
-      for (let equipo = 1; equipo <= 12; equipo++) {
-        if (equiposCompletos[equipo] && !fijados[equipo]) {
+      for (let equipo = 1; equipo <= TOTAL_EQUIPOS; equipo++) {
+        if (equiposCompletos[equipo] && !equiposFijados[equipo]) {
           if (expIndex < experimentosDisponibles.length) {
             const experimento = experimentosDisponibles[expIndex];
             const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
             
-            guardarEquipoFijado(equipo, experimento, codigo);
-            experimentosAsignados[equipo] = {
-              nombre: experimento,
-              codigo: codigo,
-              fijado: true
-            };
-            expIndex++;
+            // Guardar en Google Sheets
+            const resultado = await guardarEquipoFijado(equipo, experimento, codigo);
+            
+            if (resultado.status === 'ok') {
+              equiposFijadosArray.push(equipo);
+              expIndex++;
+            }
           } else {
             // Si no hay más experimentos disponibles
             mostrarMensaje(`No hay suficientes experimentos disponibles para todos los equipos completos`, 'warning');
@@ -606,7 +774,7 @@
         }
       }
       
-      return experimentosAsignados;
+      return equiposFijadosArray;
     }
     
     // Verificar qué equipos están completos (5 personas)
@@ -615,7 +783,7 @@
       
       // Crear objeto de equipos completos
       const equiposCompletos = {};
-      for (let i = 1; i <= 12; i++) {
+      for (let i = 1; i <= TOTAL_EQUIPOS; i++) {
         equiposCompletos[i] = (conteo[i] || 0) === MAX_POR_EQUIPO;
       }
       
@@ -623,14 +791,14 @@
     }
     
     // Asignar experimentos a equipos (experimentos únicos para cada equipo)
-    function asignarExperimentos(equiposCompletos) {
+    async function asignarExperimentos(equiposCompletos) {
+      const equiposFijados = await obtenerEquiposFijados();
       const experimentosAsignados = {};
-      const equiposFijados = obtenerEquiposFijados();
       
       // Obtener experimentos ya asignados a equipos fijados
       const experimentosUsados = new Set();
-      for (let equipo = 1; equipo <= 12; equipo++) {
-        if (equiposFijados[equipo]) {
+      for (let equipo in equiposFijados) {
+        if (equiposFijados[equipo].experimento) {
           experimentosUsados.add(equiposFijados[equipo].experimento);
         }
       }
@@ -647,7 +815,7 @@
       let expIndex = 0;
       
       // Asignar experimentos
-      for (let equipo = 1; equipo <= 12; equipo++) {
+      for (let equipo = 1; equipo <= TOTAL_EQUIPOS; equipo++) {
         if (equiposFijados[equipo]) {
           // Si el equipo está fijado, usar el experimento guardado
           experimentosAsignados[equipo] = {
@@ -692,8 +860,8 @@
     }
     
     // Obtener un experimento aleatorio único que no haya sido asignado
-    function obtenerExperimentoUnico() {
-      const equiposFijados = obtenerEquiposFijados();
+    async function obtenerExperimentoUnico() {
+      const equiposFijados = await obtenerEquiposFijados();
       const experimentosAsignados = new Set();
       
       // Obtener todos los experimentos ya asignados
@@ -720,25 +888,39 @@
       const tabla = document.getElementById('tabla-experimentos');
       const conteo = await obtenerConteoEquipos();
       const equiposCompletos = await verificarEquiposCompletos();
-      const experimentosAsignados = asignarExperimentos(equiposCompletos);
-      const equiposFijados = obtenerEquiposFijados();
+      const experimentosAsignados = await asignarExperimentos(equiposCompletos);
+      const equiposFijados = await obtenerEquiposFijados();
       
       // Actualizar lista de experimentos disponibles
-      actualizarExperimentosDisponibles();
+      await actualizarExperimentosDisponibles();
       
       tabla.innerHTML = '';
       
-      for (let equipo = 1; equipo <= 12; equipo++) {
+      for (let equipo = 1; equipo <= TOTAL_EQUIPOS; equipo++) {
         const personas = conteo[equipo] || 0;
         const completado = equiposCompletos[equipo];
         const fijado = equiposFijados[equipo] ? true : false;
         const experimento = experimentosAsignados[equipo];
+        const seleccionado = equiposSeleccionados.has(equipo);
         
         // Determinar si se puede fijar este equipo
         const puedeFijarse = completado && !fijado && experimentosDisponiblesGlobal.length > 0;
         
         const fila = document.createElement('tr');
+        fila.id = `fila-equipo-${equipo}`;
+        if (seleccionado) {
+          fila.classList.add('equipo-seleccionado');
+        }
+        
         fila.innerHTML = `
+          <td class="text-center">
+            ${fijado ? `
+              <input type="checkbox" class="checkbox-equipo" 
+                     data-equipo="${equipo}" 
+                     onchange="toggleSeleccionEquipo(${equipo})"
+                     ${seleccionado ? 'checked' : ''}>
+            ` : ''}
+          </td>
           <td class="text-center">
             <span class="team-badge">Equipo ${equipo}</span>
             ${fijado ? '<span class="badge-fijado"><i class="fas fa-lock me-1"></i>FIJADO</span>' : ''}
@@ -792,7 +974,71 @@
           'No hay experimentos disponibles' : 
           'No hay equipos completos para fijar');
       
+      // Actualizar interfaz de selección
+      actualizarInterfazSeleccion();
+      
       return experimentosAsignados;
+    }
+    
+    // Toggle selección de equipo
+    function toggleSeleccionEquipo(equipo) {
+      const checkbox = document.querySelector(`.checkbox-equipo[data-equipo="${equipo}"]`);
+      const fila = document.getElementById(`fila-equipo-${equipo}`);
+      
+      if (checkbox.checked) {
+        equiposSeleccionados.add(equipo);
+        fila.classList.add('equipo-seleccionado');
+      } else {
+        equiposSeleccionados.delete(equipo);
+        fila.classList.remove('equipo-seleccionado');
+      }
+      
+      actualizarContadorSeleccion();
+      actualizarInterfazSeleccion();
+    }
+    
+    // Actualizar contador de selección
+    function actualizarContadorSeleccion() {
+      const contador = document.getElementById('contador-seleccion');
+      const container = document.getElementById('contador-seleccion-container');
+      
+      if (equiposSeleccionados.size > 0) {
+        contador.textContent = equiposSeleccionados.size;
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+    }
+    
+    // Actualizar interfaz de selección
+    function actualizarInterfazSeleccion() {
+      const btnDesfijar = document.getElementById('btn-desfijar');
+      const instrucciones = document.getElementById('instrucciones-desfijar');
+      const textoInstrucciones = document.getElementById('texto-instrucciones');
+      
+      if (equiposSeleccionados.size > 0) {
+        btnDesfijar.disabled = false;
+        instrucciones.style.display = 'block';
+        textoInstrucciones.textContent = `Seleccionados ${equiposSeleccionados.size} equipo(s) para desfijar. Haz clic en "Desfijar Equipos Seleccionados" para continuar.`;
+      } else {
+        btnDesfijar.disabled = true;
+        instrucciones.style.display = 'none';
+      }
+    }
+    
+    // Cancelar selección
+    function cancelarSeleccion() {
+      // Desmarcar todos los checkboxes
+      document.querySelectorAll('.checkbox-equipo:checked').forEach(checkbox => {
+        checkbox.checked = false;
+        const equipo = parseInt(checkbox.getAttribute('data-equipo'));
+        equiposSeleccionados.delete(equipo);
+        const fila = document.getElementById(`fila-equipo-${equipo}`);
+        if (fila) fila.classList.remove('equipo-seleccionado');
+      });
+      
+      actualizarContadorSeleccion();
+      actualizarInterfazSeleccion();
     }
     
     // Cargar tabla de registros completos
@@ -847,6 +1093,40 @@
       }
     }
     
+    // SOLICITAR DESFIJAR EQUIPOS
+    function solicitarDesfijar() {
+      if (equiposSeleccionados.size === 0) {
+        mostrarMensaje('Primero selecciona los equipos que quieres desfijar', 'warning');
+        return;
+      }
+      
+      // Mostrar lista de equipos a desfijar
+      const container = document.getElementById('equipos-a-desfijar');
+      container.innerHTML = '';
+      
+      const equiposArray = Array.from(equiposSeleccionados).sort((a, b) => a - b);
+      
+      let html = '<p>Equipos seleccionados para desfijar:</p><div class="d-flex flex-wrap gap-2">';
+      
+      equiposArray.forEach(equipo => {
+        html += `<span class="badge bg-warning">Equipo ${equipo}</span>`;
+      });
+      
+      html += '</div>';
+      container.innerHTML = html;
+      
+      // Resetear modal
+      document.getElementById('passwordDesfijar').value = '';
+      document.getElementById('confirmarDesfijar').checked = false;
+      document.getElementById('desfijarError').classList.add('d-none');
+      
+      if (!desfijarModal) {
+        desfijarModal = new bootstrap.Modal(document.getElementById('desfijarModal'));
+      }
+      
+      desfijarModal.show();
+    }
+    
     // SOLICITAR REINICIO DE ASIGNACIÓN
     function solicitarReinicio() {
       // Resetear modal de reinicio
@@ -878,9 +1158,6 @@
     function solicitarPasswordFijar(equipo) {
       equipoAFijar = equipo;
       
-      // Verificar si hay experimentos disponibles
-      actualizarExperimentosDisponibles();
-      
       if (equipo === 'todos') {
         tipoFijado = 'todos';
         const equiposCompletosFijables = calcularEquiposCompletosFijables();
@@ -905,10 +1182,10 @@
     // Calcular cuántos equipos completos se pueden fijar
     async function calcularEquiposCompletosFijables() {
       const equiposCompletos = await verificarEquiposCompletos();
-      const equiposFijados = obtenerEquiposFijados();
+      const equiposFijados = await obtenerEquiposFijados();
       
       let equiposCompletosNoFijados = 0;
-      for (let equipo = 1; equipo <= 12; equipo++) {
+      for (let equipo = 1; equipo <= TOTAL_EQUIPOS; equipo++) {
         if (equiposCompletos[equipo] && !equiposFijados[equipo]) {
           equiposCompletosNoFijados++;
         }
@@ -963,11 +1240,10 @@
           }
           
           // Fijar todos los equipos completos
-          const equiposFijados = fijarTodosEquiposCompletos(equiposCompletos);
-          const equiposFijadosCount = Object.keys(equiposFijados).length;
+          const equiposFijados = await fijarTodosEquiposCompletos(equiposCompletos);
           
-          if (equiposFijadosCount > 0) {
-            mostrarMensajeExito(`¡${equiposFijadosCount} equipo(s) completos han sido fijados con experimentos únicos!`);
+          if (equiposFijados.length > 0) {
+            mostrarMensajeExito(`¡${equiposFijados.length} equipo(s) completos han sido fijados con experimentos únicos!`);
           } else {
             mostrarMensaje('No hay equipos completos para fijar o no hay experimentos disponibles', 'warning');
           }
@@ -985,7 +1261,7 @@
           }
           
           // Fijar equipo individual con experimento único
-          fijarEquipoIndividual(equipoAFijar);
+          await fijarEquipoIndividual(equipoAFijar);
           mostrarMensajeExito(`¡Equipo ${equipoAFijar} fijado con experimento único!`);
         }
         
@@ -1002,8 +1278,33 @@
       }
     }
     
+    // Verificar contraseña para desfijar
+    async function verificarDesfijar() {
+      const passwordIngresada = document.getElementById('passwordDesfijar').value;
+      const confirmado = document.getElementById('confirmarDesfijar').checked;
+      const errorDiv = document.getElementById('desfijarError');
+      
+      if (passwordIngresada === PASSWORD_FIJAR && confirmado) {
+        errorDiv.classList.add('d-none');
+        desfijarModal.hide();
+        
+        // Ejecutar desfijado
+        const equiposArray = Array.from(equiposSeleccionados);
+        await desfijarEquiposSeleccionados(equiposArray);
+        
+      } else {
+        errorDiv.classList.remove('d-none');
+        if (!confirmado) {
+          errorDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Debes confirmar la acción marcando la casilla';
+        } else {
+          errorDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Contraseña incorrecta';
+        }
+        document.getElementById('passwordDesfijar').value = '';
+      }
+    }
+    
     // Verificar contraseña para reiniciar
-    function verificarReinicio() {
+    async function verificarReinicio() {
       const passwordIngresada = document.getElementById('passwordReiniciar').value;
       const confirmado = document.getElementById('confirmarReinicio').checked;
       const errorDiv = document.getElementById('reiniciarError');
@@ -1013,7 +1314,7 @@
         reiniciarModal.hide();
         
         // Ejecutar reinicio
-        reiniciarAsignaciones();
+        await reiniciarAsignaciones();
         
       } else {
         errorDiv.classList.remove('d-none');
@@ -1027,9 +1328,9 @@
     }
     
     // Fijar equipo individual con experimento único
-    function fijarEquipoIndividual(equipo) {
+    async function fijarEquipoIndividual(equipo) {
       // Obtener experimento único disponible
-      const experimentoUnico = obtenerExperimentoUnico();
+      const experimentoUnico = await obtenerExperimentoUnico();
       
       if (!experimentoUnico) {
         mostrarMensaje('No hay experimentos disponibles para asignar', 'error');
@@ -1038,20 +1339,84 @@
       
       const codigo = `EXP-${equipo.toString().padStart(2, '0')}`;
       
-      guardarEquipoFijado(equipo, experimentoUnico, codigo);
+      await guardarEquipoFijado(equipo, experimentoUnico, codigo);
+    }
+    
+    // Desfijar equipos seleccionados
+    async function desfijarEquiposSeleccionados(equipos) {
+      try {
+        // Desfijar cada equipo individualmente
+        for (const equipo of equipos) {
+          const resultado = await desfijarEquipoEnGoogleSheets(equipo);
+          if (resultado.status !== 'ok') {
+            console.error(`Error al desfijar equipo ${equipo}:`, resultado.message);
+          }
+        }
+        
+        // Actualizar lista de experimentos disponibles
+        await actualizarExperimentosDisponibles();
+        
+        // Limpiar selección
+        equiposSeleccionados.clear();
+        actualizarContadorSeleccion();
+        
+        // Mostrar mensaje de éxito
+        mostrarMensajeExito(`¡${equipos.length} equipo(s) han sido desfijados correctamente!`);
+        
+        // Recargar la tabla
+        setTimeout(async () => {
+          const experimentosAsignados = await cargarTablaExperimentos();
+          await cargarTablaRegistrosCompletos(experimentosAsignados);
+        }, 500);
+        
+      } catch (error) {
+        console.error('Error al desfijar equipos:', error);
+        mostrarMensaje('Error al desfijar los equipos', 'error');
+      }
+    }
+    
+    // Reiniciar todas las asignaciones
+    async function reiniciarAsignaciones() {
+      try {
+        const resultado = await reiniciarFijadosEnGoogleSheets();
+        
+        if (resultado.status === 'ok') {
+          // Reiniciar lista de experimentos disponibles
+          experimentosDisponiblesGlobal = [...EXPERIMENTOS];
+          
+          // Limpiar selección
+          equiposSeleccionados.clear();
+          actualizarContadorSeleccion();
+          
+          // Mostrar mensaje de éxito
+          mostrarMensajeExito('¡Todas las asignaciones han sido reiniciadas! Los experimentos están disponibles para nueva asignación.');
+          
+          // Recargar la tabla
+          setTimeout(async () => {
+            const experimentosAsignados = await cargarTablaExperimentos();
+            await cargarTablaRegistrosCompletos(experimentosAsignados);
+          }, 500);
+        } else {
+          mostrarMensaje('Error al reiniciar asignaciones: ' + resultado.message, 'error');
+        }
+        
+      } catch (error) {
+        console.error('Error al reiniciar asignaciones:', error);
+        mostrarMensaje('Error al reiniciar las asignaciones', 'error');
+      }
     }
     
     // Exportar tabla de experimentos como CSV
     async function exportarExperimentosCSV() {
       const conteo = await obtenerConteoEquipos();
       const equiposCompletos = await verificarEquiposCompletos();
-      const experimentosAsignados = asignarExperimentos(equiposCompletos);
-      const equiposFijados = obtenerEquiposFijados();
+      const experimentosAsignados = await asignarExperimentos(equiposCompletos);
+      const equiposFijados = await obtenerEquiposFijados();
       
       // Crear contenido CSV
       let csvContent = "Equipo,Personas Registradas,Estado,Experimento Asignado,Código,Fijado,Última Actualización\n";
       
-      for (let equipo = 1; equipo <= 12; equipo++) {
+      for (let equipo = 1; equipo <= TOTAL_EQUIPOS; equipo++) {
         const personas = conteo[equipo] || 0;
         const estado = equiposCompletos[equipo] ? "COMPLETO" : "INCOMPLETO";
         const experimento = experimentosAsignados[equipo];
@@ -1079,14 +1444,15 @@
     async function exportarRegistrosCSV() {
       const registros = await obtenerRegistrosDesdeGoogleSheets();
       const equiposCompletos = await verificarEquiposCompletos();
-      const experimentosAsignados = asignarExperimentos(equiposCompletos);
+      const experimentosAsignados = await asignarExperimentos(equiposCompletos);
+      const equiposFijados = await obtenerEquiposFijados();
       
       // Crear contenido CSV
       let csvContent = "#,Nombre Completo,Equipo,Experimento Asignado,Fecha de Registro,Equipo Fijado\n";
       
       registros.forEach((registro, index) => {
         const experimento = experimentosAsignados[registro.equipo] || {nombre: 'No asignado'};
-        const fijado = obtenerEquiposFijados()[registro.equipo] ? "SI" : "NO";
+        const fijado = equiposFijados[registro.equipo] ? "SI" : "NO";
         
         csvContent += `${index + 1},"${registro.nombre}","Equipo ${registro.equipo}","${experimento.nombre}","${registro.fecha}","${fijado}"\n`;
       });
@@ -1168,18 +1534,19 @@
       // Inicializar modales
       modal = new bootstrap.Modal(document.getElementById('passwordModal'));
       fijarModal = new bootstrap.Modal(document.getElementById('fijarModal'));
+      desfijarModal = new bootstrap.Modal(document.getElementById('desfijarModal'));
       reiniciarModal = new bootstrap.Modal(document.getElementById('reiniciarModal'));
       
       // Inicializar lista de experimentos disponibles
-      actualizarExperimentosDisponibles();
+      await actualizarExperimentosDisponibles();
       
       // Cargar datos iniciales
       await cargarDatos();
       
-      // Actualizar automáticamente cada 10 segundos
+      // Actualizar automáticamente cada 3 segundos
       setInterval(async () => {
         await cargarDatos();
-      }, 10000);
+      }, 3000);
     });
     
     // Función para cargar todos los datos
