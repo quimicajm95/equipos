@@ -355,6 +355,8 @@
     const MAX_POR_EQUIPO = 5;
     const TOTAL_EQUIPOS = 12;
 
+    // ========== FUNCIONES PARA GOOGLE SHEETS ==========
+    
     // Obtener Registros desde Google Sheets
     async function obtenerRegistrosDesdeGoogleSheets() {
       try {
@@ -388,11 +390,23 @@
       }
     }
     
-    // Obtener equipos fijados desde localStorage (compartido con resultados.html)
-    function obtenerEquiposFijados() {
-      const fijados = localStorage.getItem('equiposFijados');
-      return fijados ? JSON.parse(fijados) : {};
+    // Obtener equipos fijados desde Google Sheets
+    async function obtenerEquiposFijados() {
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerEquiposFijados`);
+        const data = await response.json();
+        
+        if (data.status === 'ok') {
+          return data.data;
+        }
+        return {};
+      } catch (error) {
+        console.error('Error al obtener equipos fijados:', error);
+        return {};
+      }
     }
+    
+    // ========== FUNCIONES PRINCIPALES ==========
     
     // Cargar y mostrar equipos completos
     async function cargarEquiposCompletos() {
@@ -407,9 +421,9 @@
       mensajeSinEquipos.classList.add('d-none');
       
       try {
-        // Obtener datos
+        // Obtener datos desde Google Sheets
         const conteo = await obtenerConteoEquipos();
-        const equiposFijados = obtenerEquiposFijados();
+        const equiposFijados = await obtenerEquiposFijados();
         const registros = await obtenerRegistrosDesdeGoogleSheets();
         
         // Contar equipos completos y con experimentos asignados
@@ -672,10 +686,10 @@
       // Cargar datos iniciales
       await cargarEquiposCompletos();
       
-      // Actualizar automáticamente cada 15 segundos
+      // Actualizar automáticamente cada 3 segundos
       setInterval(async () => {
         await cargarEquiposCompletos();
-      }, 15000);
+      }, 3000);
     });
   </script>
   
