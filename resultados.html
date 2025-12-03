@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -70,24 +70,45 @@
     h1, h2, h3, h4, h5, h6 {
       color: white;
     }
+    
+    /* TABLAS CON TEXTO EN NEGRO PARA MEJOR CONTRASTE */
     .table-dark-custom {
-      background-color: #1c2836;
-      color: white;
+      background-color: #ffffff !important; /* Fondo blanco */
+      color: #000000 !important; /* Texto negro */
       border-radius: 10px;
       overflow: hidden;
     }
     .table-dark-custom th {
-      background-color: #2c3e50;
+      background-color: #2c3e50 !important; /* Header oscuro */
       border-color: #34495e;
-      color: white;
+      color: white !important; /* Texto header en blanco */
       font-weight: 600;
       text-align: center;
       vertical-align: middle;
     }
     .table-dark-custom td {
-      border-color: #34495e;
+      border-color: #dee2e6 !important; /* Bordes claros */
+      color: #000000 !important; /* Texto de celdas en NEGRO */
+      font-weight: 500;
       vertical-align: middle;
+      background-color: #ffffff !important; /* Fondo blanco para celdas */
     }
+    
+    /* Hover para filas */
+    .table-dark-custom tbody tr:hover {
+      background-color: #f8f9fa !important; /* Gris claro al pasar mouse */
+    }
+    
+    /* Asegurar que todos los textos dentro de las tablas sean negros */
+    .table-dark-custom td * {
+      color: #000000 !important;
+    }
+    
+    /* Badges mantienen sus colores pero con texto blanco */
+    .badge {
+      color: white !important;
+    }
+    
     .table-title {
       border-bottom: 3px solid var(--warning);
       padding-bottom: 10px;
@@ -95,7 +116,7 @@
     }
     .experiment-badge {
       background: linear-gradient(135deg, #8e44ad, #9b59b6);
-      color: white;
+      color: white !important; /* Texto blanco en badges */
       font-weight: 500;
       padding: 5px 15px;
       border-radius: 20px;
@@ -103,12 +124,32 @@
     }
     .team-badge {
       background: linear-gradient(135deg, var(--secondary), #2980b9);
-      color: white;
+      color: white !important; /* Texto blanco en badges */
       font-weight: 600;
       padding: 6px 16px;
       border-radius: 20px;
       font-size: 1rem;
     }
+    
+    /* Badges de estado - mantienen colores pero texto blanco */
+    .badge-fijado {
+      background: linear-gradient(135deg, var(--warning), #e67e22);
+      color: white !important;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
+    .badge-experimento {
+      background: linear-gradient(135deg, #27ae60, #229954);
+      color: white !important;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
+    
+    /* Modal styling */
     .password-modal .modal-content {
       background: var(--card-bg);
       color: white;
@@ -131,12 +172,8 @@
     .modal-footer {
       border-top: 1px solid #34495e;
     }
-    .readonly-table {
-      background-color: rgba(255, 255, 255, 0.05);
-    }
-    .readonly-table td {
-      color: #ecf0f1;
-    }
+    
+    /* Sección de cards */
     .section-card {
       background: rgba(255,255,255,0.05);
       border-radius: 10px;
@@ -144,37 +181,32 @@
       margin-bottom: 30px;
       border-left: 5px solid var(--warning);
     }
-    .badge-fijado {
-      background: linear-gradient(135deg, var(--warning), #e67e22);
-      color: white;
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 10px;
-      margin-left: 5px;
+    
+    /* Texto muted dentro de las tablas (debe ser gris oscuro) */
+    .table-dark-custom .text-muted {
+      color: #6c757d !important; /* Gris más oscuro para mejor contraste */
     }
-    .badge-experimento {
-      background: linear-gradient(135deg, #27ae60, #229954);
-      color: white;
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 10px;
-      margin-left: 5px;
+    
+    /* Asegurar que los botones dentro de las tablas mantengan su estilo */
+    .table-dark-custom .btn-fijar {
+      color: white !important; /* Texto blanco en botones */
     }
-    .badge-completo {
-      background: linear-gradient(135deg, var(--success), #229954);
-      color: white;
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 10px;
-      margin-left: 5px;
+    
+    /* Clase para las tablas de solo lectura (mantener fondo claro) */
+    .readonly-table {
+      background-color: #ffffff !important;
     }
-    .badge-incompleto {
-      background: linear-gradient(135deg, var(--danger), #c0392b);
-      color: white;
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 10px;
-      margin-left: 5px;
+    .readonly-table td {
+      color: #000000 !important; /* Texto negro para mejor contraste */
+    }
+    
+    /* Badges de Bootstrap dentro de tablas */
+    .table-dark-custom .bg-success,
+    .table-dark-custom .bg-warning,
+    .table-dark-custom .bg-danger,
+    .table-dark-custom .bg-primary,
+    .table-dark-custom .bg-secondary {
+      color: white !important; /* Asegurar texto blanco en badges */
     }
   </style>
 </head>
@@ -603,11 +635,11 @@
         const fila = document.createElement('tr');
         fila.innerHTML = `
           <td class="text-center">${index + 1}</td>
-          <td>${registro.nombre}</td>
+          <td><strong>${registro.nombre}</strong></td>
           <td class="text-center">
             <span class="badge bg-primary">Equipo ${registro.equipo}</span>
           </td>
-          <td>${experimento.nombre}</td>
+          <td><strong>${experimento.nombre}</strong></td>
           <td>${registro.fecha}</td>
         `;
         tabla.appendChild(fila);
