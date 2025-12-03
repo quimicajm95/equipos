@@ -225,7 +225,7 @@
             </div>
             
             <!-- BOTÓN VER RESULTADOS -->
-            <button id="btnResultados" class="btn btn-results" onclick="verResultados()" disabled>
+            <button id="btnResultados" class="btn btn-results" onclick="window.location.href='usuarios.html" disabled>
               <i class="fas fa-chart-pie me-2"></i>Ver Resultados
             </button>
             
@@ -474,8 +474,8 @@
         }
       }
       
-      btnResultados.disabled = !todosCompletos;
-      return todosCompletos;
+      btnResultados.disabled = false;
+      return true;
     }
 
     // Actualizar toda la interfaz
@@ -602,3 +602,4 @@
   </script>
 </body>
 </html>
+
