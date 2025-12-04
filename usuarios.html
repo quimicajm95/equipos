@@ -392,20 +392,19 @@
     
     // Obtener equipos fijados desde Google Sheets
     async function obtenerEquiposFijados() {
-      try {
-        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerEquiposFijados`);
-        const data = await response.json();
-        
-        if (data.status === 'ok') {
-          return data.data;
-        }
-        return {};
-      } catch (error) {
-        console.error('Error al obtener equipos fijados:', error);
-        return {};
-      }
-    }
+  try {
+    const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=obtenerEquiposFijados`);
+    const data = await response.json();
     
+    if (data.status === 'ok') {
+      return data.data; // Ahora viene en data.data
+    }
+    return {};
+  } catch (error) {
+    console.error('Error al obtener equipos fijados:', error);
+    return {};
+  }
+}
     // ========== FUNCIONES PRINCIPALES ==========
     
     // Cargar y mostrar equipos completos
